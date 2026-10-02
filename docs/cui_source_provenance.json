@@ -1,0 +1,14 @@
+{
+  "doi": "https://doi.org/10.1158/1078-0432.CCR-18-0825",
+  "publisher_article_id": 22470557,
+  "publisher_file_id": 39922043,
+  "download_url": "https://ndownloader.figshare.com/files/39922043",
+  "file_name": "10780432ccr180825-sup-198509_2_supp_4804798_ps0s7s.docx",
+  "size_bytes": 628009,
+  "sha256": "3f6d3dd94160a18c418f2eb6911addcd88b7a1dd5664273801a20290f2c7186b",
+  "md5": "074354292c35231cf0278462eb960108",
+  "license": "CC BY (publisher repository metadata)",
+  "rss_location": "Supplement Table 1",
+  "immune_location": "Main article: Immune Signature and Its Prognostic Value",
+  "verification": "34 RSS rows extracted from publisher DOCX; IMS weights and both score directions checked against main article. No target outcomes inspected."
+}

@@ -1,0 +1,36 @@
+{
+  "source": "https://doi.org/10.1158/1078-0432.CCR-18-0825",
+  "source_verified": true,
+  "locked_at": "2026-10-02T02:31:44.918130+00:00",
+  "direction": -1,
+  "transform": "log2p1_gene_zscore",
+  "zscore_ddof": 1,
+  "source_supplement": "https://aacr.figshare.com/articles/journal_contribution/22470557",
+  "supplement_sha256": "3f6d3dd94160a18c418f2eb6911addcd88b7a1dd5664273801a20290f2c7186b",
+  "formula": "sum(weight * standardized_gene_expression)",
+  "expression_adaptation": "NSCLC FPKM: log2(FPKM+1), then per-gene z-score across all baseline samples; an explicit RNA-seq adaptation, not verbatim microarray preprocessing.",
+  "normalization_uncertainty": "Supplement specifies per-dataset z-scores but not axis or SD divisor; per-gene across-sample scaling and sample SD are explicit implementation choices.",
+  "threshold_applied": false,
+  "name": "immune",
+  "role": "secondary",
+  "genes": [
+    {
+      "gene": "ADRM1",
+      "weight": 4.7
+    },
+    {
+      "gene": "MICB",
+      "weight": 3.6
+    },
+    {
+      "gene": "PSMD13",
+      "weight": 4.8
+    },
+    {
+      "gene": "RFXANK",
+      "weight": -3.7
+    }
+  ],
+  "published_raw_cutoff": -3.8,
+  "published_effective_direction": "lower raw score"
+}
