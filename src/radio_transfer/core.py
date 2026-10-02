@@ -43,6 +43,8 @@ def load_signature(path):
     genes = spec["genes"]
     if not genes or len({g["gene"] for g in genes}) != len(genes):
         raise ValueError("Signature genes must be nonempty and unique.")
+    if spec.get("zscore_ddof", 0) not in (0, 1):
+        raise ValueError("zscore_ddof must be 0 or 1.")
     weights = np.array([g["weight"] for g in genes], dtype=float)
     if not np.isfinite(weights).all() or not np.any(weights):
         raise ValueError("Signature weights must be finite and not all zero.")
@@ -65,7 +67,9 @@ def score_expression(expression, spec, adapted_rank=False):
         if spec["transform"].startswith("log2p1"):
             values = np.log2(values + 1)
         if spec["transform"] == "log2p1_gene_zscore":
-            sd = values.std(axis=1, ddof=0)
+            if values.shape[1] <= spec.get("zscore_ddof", 0):
+                raise ValueError("Insufficient samples for the chosen z-score SD divisor.")
+            sd = values.std(axis=1, ddof=spec.get("zscore_ddof", 0))
             if np.any(sd == 0):
                 raise ValueError("Cannot standardize constant signature genes.")
             values = (values - values.mean(axis=1, keepdims=True)) / sd[:, None]

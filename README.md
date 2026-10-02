@@ -26,9 +26,9 @@ The expression TSV has gene symbols in its first column and sample IDs in its re
 
 Create `clinical.csv` using `config/metadata_template.csv`. `baseline`, `mpr`, and `verified` use 1/0; arms are `durvalumab` or `durvalumab_sbrt`. Each label requires a source and a patient ID. Unverified/nonbaseline/unresolved samples are listed as excluded. Duplicate eligible patients stop analysis.
 
-Create two signature JSON files using `config/signature_template.json`: one `primary` RSS with exactly 34 genes, and one `secondary` immune signature. Each gene entry is `{"gene": "GENE_SYMBOL", "weight": 0.123}`. Obtain the actual genes, coefficients, transformation, and direction from the Cui paper and supplement. `direction` is +1 or -1 so larger oriented scores correspond to the published sensitive/immune-effective direction. Set `source_verified` to true and record `locked_at` only after checking and locking the source specification **before inspecting outcomes**. These declarations are an audit record, not independent proof of verification.
+Verified source coefficients are now supplied in `config/rss.json` and `config/immune.json`. See `docs/cui_scoring.md` for preprocessing choices and source verification. For other specifications, use `config/signature_template.json`: one `primary` RSS with exactly 34 genes, and one `secondary` immune signature. Each gene entry is `{"gene": "GENE_SYMBOL", "weight": 0.123}`. Obtain the actual genes, coefficients, transformation, and direction from the Cui paper and supplement. `direction` is +1 or -1 so larger oriented scores correspond to the published sensitive/immune-effective direction. Set `source_verified` to true and record `locked_at` only after checking and locking the source specification **before inspecting outcomes**. These declarations are an audit record, not independent proof of verification.
 
-Supported transforms are `identity`, `log2p1`, and `log2p1_gene_zscore` (population SD across the baseline expression cohort). Use one only if justified by the locked source method and platform adaptation. The engine is a weighted sum, not a claim that all source scoring methods are already reproduced; extend it if the supplement requires a different formula. There are deliberately no fabricated gene weights or patient response labels in this repository.
+Supported transforms are `identity`, `log2p1`, and `log2p1_gene_zscore` (SD across the baseline expression cohort; `zscore_ddof` selects population 0 or sample 1). Use one only if justified by the locked source method and platform adaptation. The engine is a weighted sum, not a claim that all source scoring methods are already reproduced; extend it if the supplement requires a different formula. There are deliberately no fabricated gene weights or patient response labels in this repository.
 
 ## Outputs
 
@@ -38,7 +38,7 @@ Rank probability is P(MPR score > non-MPR score) + half the tie probability. It 
 
 ## Current status
 
-Pipeline and synthetic tests are implemented. Real source coefficients, verified clinical linkage, identifier reconciliation, QC figures, and an estimability-aware exploratory treatment interaction remain to be completed. Real cohort analysis has not run. A blocked download is an error, not evidence that the dataset is unavailable. Confirm the current GEO supplementary filename before downloading if it changes.
+Pipeline and synthetic tests are implemented. Published RSS and IMS coefficients and direction have been verified and supplied. Verified clinical linkage, identifier reconciliation, QC figures, and an estimability-aware exploratory treatment interaction remain to be completed. Real cohort analysis has not run. A blocked download is an error, not evidence that the dataset is unavailable. Confirm the current GEO supplementary filename before downloading if it changes.
 
 ```bash
 PYTHONPATH=src python -m unittest discover -s tests -v
