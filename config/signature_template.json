@@ -1,0 +1,10 @@
+{
+  "name": "rss",
+  "role": "primary",
+  "source": "https://doi.org/10.1158/1078-0432.CCR-18-0825",
+  "source_verified": false,
+  "locked_at": "",
+  "direction": 1,
+  "transform": "identity",
+  "genes": []
+}
