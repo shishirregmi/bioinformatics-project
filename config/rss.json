@@ -1,0 +1,190 @@
+{
+  "source": "https://doi.org/10.1158/1078-0432.CCR-18-0825",
+  "source_verified": true,
+  "locked_at": "2026-10-02T02:31:44.917815+00:00",
+  "direction": -1,
+  "transform": "log2p1_gene_zscore",
+  "zscore_ddof": 1,
+  "source_supplement": "https://aacr.figshare.com/articles/journal_contribution/22470557",
+  "supplement_sha256": "3f6d3dd94160a18c418f2eb6911addcd88b7a1dd5664273801a20290f2c7186b",
+  "formula": "sum(weight * standardized_gene_expression)",
+  "expression_adaptation": "NSCLC FPKM: log2(FPKM+1), then per-gene z-score across all baseline samples; an explicit RNA-seq adaptation, not verbatim microarray preprocessing.",
+  "normalization_uncertainty": "Supplement specifies per-dataset z-scores but not axis or SD divisor; per-gene across-sample scaling and sample SD are explicit implementation choices.",
+  "threshold_applied": false,
+  "name": "rss",
+  "role": "primary",
+  "genes": [
+    {
+      "gene": "ATP4A",
+      "entrez_id": "495",
+      "weight": -2.03
+    },
+    {
+      "gene": "COLQ",
+      "entrez_id": "8292",
+      "weight": -0.42
+    },
+    {
+      "gene": "MDM2",
+      "entrez_id": "4193",
+      "weight": 0.42
+    },
+    {
+      "gene": "PER1",
+      "entrez_id": "5187",
+      "weight": -0.3
+    },
+    {
+      "gene": "KPNA2",
+      "entrez_id": "3838",
+      "weight": 0.34
+    },
+    {
+      "gene": "CCNB1",
+      "entrez_id": "891",
+      "weight": 0.39
+    },
+    {
+      "gene": "MSMO1",
+      "entrez_id": "6307",
+      "weight": 0.29
+    },
+    {
+      "gene": "BTG3",
+      "entrez_id": "10950",
+      "weight": 0.12
+    },
+    {
+      "gene": "TUBB2A",
+      "entrez_id": "7280",
+      "weight": 0.64
+    },
+    {
+      "gene": "CD44",
+      "entrez_id": "960",
+      "weight": -0.04
+    },
+    {
+      "gene": "NEK2",
+      "entrez_id": "4751",
+      "weight": 0.91
+    },
+    {
+      "gene": "PLCL1",
+      "entrez_id": "5334",
+      "weight": -0.01
+    },
+    {
+      "gene": "CLGN",
+      "entrez_id": "1047",
+      "weight": -0.43
+    },
+    {
+      "gene": "ID2",
+      "entrez_id": "3398",
+      "weight": 0.07
+    },
+    {
+      "gene": "SART3",
+      "entrez_id": "9733",
+      "weight": -0.63
+    },
+    {
+      "gene": "GGA2",
+      "entrez_id": "23062",
+      "weight": -0.01
+    },
+    {
+      "gene": "DDIT3",
+      "entrez_id": "1649",
+      "weight": 0.97
+    },
+    {
+      "gene": "TXNIP",
+      "entrez_id": "10628",
+      "weight": -0.33
+    },
+    {
+      "gene": "LINS",
+      "entrez_id": "55180",
+      "weight": -1.85
+    },
+    {
+      "gene": "ZNF787",
+      "entrez_id": "126208",
+      "weight": 0.38
+    },
+    {
+      "gene": "PLEK2",
+      "entrez_id": "26499",
+      "weight": -0.06
+    },
+    {
+      "gene": "PLA2G4A",
+      "entrez_id": "5321",
+      "weight": 0.6
+    },
+    {
+      "gene": "SARS2",
+      "entrez_id": "54938",
+      "weight": -0.4
+    },
+    {
+      "gene": "MMD",
+      "entrez_id": "23531",
+      "weight": 0.58
+    },
+    {
+      "gene": "BBS9",
+      "entrez_id": "27241",
+      "weight": -0.34
+    },
+    {
+      "gene": "FGFR1OP",
+      "entrez_id": "11116",
+      "weight": -0.33
+    },
+    {
+      "gene": "ANO3",
+      "entrez_id": "63982",
+      "weight": -0.33
+    },
+    {
+      "gene": "NUDT15",
+      "entrez_id": "55270",
+      "weight": 0.47
+    },
+    {
+      "gene": "COX7B",
+      "entrez_id": "1349",
+      "weight": 1.2
+    },
+    {
+      "gene": "H2AFJ",
+      "entrez_id": "55766",
+      "weight": 5.5
+    },
+    {
+      "gene": "PYGB",
+      "entrez_id": "5834",
+      "weight": -1.12
+    },
+    {
+      "gene": "USP7",
+      "entrez_id": "7874",
+      "weight": -0.58
+    },
+    {
+      "gene": "PHEX",
+      "entrez_id": "5251",
+      "weight": 0.39
+    },
+    {
+      "gene": "FAM114A2",
+      "entrez_id": "10827",
+      "weight": -0.43
+    }
+  ],
+  "published_raw_cutoff": 1.0,
+  "published_effective_direction": "lower raw score"
+}
