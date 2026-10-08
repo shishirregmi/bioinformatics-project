@@ -10,6 +10,29 @@ jobs:
           python-version: '3.11'
       - run: pip install -e .
       - run: python -m unittest discover -s tests -v
+      - name: Inspect candidate independent radiogenomic data (temporary)
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/radio-data
+          curl --fail --location --silent --show-error "https://media.springernature.com/original/springer-static/esm/art%3A10.1038%2Fncomms11428/MediaObjects/41467_2016_BFncomms11428_MOESM708_ESM.xlsx" -o /tmp/radio-data/radiation.xlsx
+          curl --fail --location --silent --show-error "https://data.broadinstitute.org/ccle/CCLE_RNAseq_genes_rpkm_20180929.gct.gz" -o /tmp/radio-data/ccle.gct.gz
+          pip install openpyxl
+          python - <<'PY'
+          import gzip
+          from pathlib import Path
+          import pandas as pd
+
+          path = Path("/tmp/radio-data/radiation.xlsx")
+          book = pd.ExcelFile(path)
+          print("RADIO_SHEETS", book.sheet_names)
+          for sheet in book.sheet_names:
+              frame = pd.read_excel(path, sheet_name=sheet, header=None)
+              print("RADIO_SHEET", sheet, "shape", frame.shape)
+              print(frame.head(5).to_string(index=False, header=False))
+          with gzip.open("/tmp/radio-data/ccle.gct.gz", "rt") as source:
+              for index in range(3):
+                  print("CCLE_GCT_HEADER", index, source.readline().rstrip()[:700])
+          PY
       - run: sh -n docker-entrypoint.sh
       - name: Simulate Windows CRLF checkout
         run: python -c "from pathlib import Path; path = Path('docker-entrypoint.sh'); path.write_bytes(path.read_bytes().replace(b'\\n', b'\\r\\n'))"
