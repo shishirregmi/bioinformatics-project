@@ -17,6 +17,7 @@ jobs:
       - name: Prepare cached matrices for container smoke test
         run: |
           python - <<'PY'
+          import gzip
           import json
           from pathlib import Path
           import numpy as np
@@ -36,6 +37,7 @@ jobs:
               values = rng.lognormal(mean=1, sigma=1, size=(len(genes), count))
               columns = [f"{name}_{i}" for i in range(count)]
               pd.DataFrame(values, index=genes, columns=columns).to_csv(output / filename, sep="\t", compression="gzip")
+
           clinical = pd.DataFrame({
               "sample_id": [f"baseline_{i}" for i in range(8)],
               "patient_id": [f"patient_{i}" for i in range(8)],
@@ -46,6 +48,30 @@ jobs:
               "verified": ["1"] * 8,
           })
           clinical.to_csv("smoke/data/clinical.csv", index=False)
+
+          lung_lines = [f"SMOKE_LUNG_{index:02d}" for index in range(16)]
+          radiation = pd.DataFrame({
+              "Master_ccl_id": range(1, 17),
+              "Cell Line": lung_lines,
+              "Site": ["lung"] * 16,
+              "Histology": ["carcinoma"] * 16,
+              "Subhistology": ["adenocarcinoma"] * 12 + ["squamous_cell_carcinoma"] * 4,
+              "Culture_media": ["RPMI001"] * 16,
+              "Snp_fp_status": ["SNP-matched-reference"] * 16,
+              "AUC": np.linspace(0.7, 5.8, 16),
+          })
+          with pd.ExcelWriter(output / "41467_2016_BFncomms11428_MOESM708_ESM.xlsx", engine="openpyxl") as writer:
+              radiation.to_excel(writer, sheet_name="Supplementary Data 1", index=False, startrow=1)
+
+          samples = [f"{line}_LUNG" for line in lung_lines] + ["UNRELATED_BREAST"]
+          rss_genes = [item["gene"] for item in json.loads(Path("config/rss.json").read_text())["genes"]]
+          values = rng.lognormal(mean=1, sigma=0.8, size=(len(rss_genes), len(samples)))
+          with gzip.open(output / "CCLE_RNAseq_genes_rpkm_20180929.gct.gz", "wt", encoding="utf-8") as stream:
+              stream.write("#1.2\n")
+              stream.write(f"{len(rss_genes)}\t{len(samples)}\n")
+              stream.write("Name\tDescription\t" + "\t".join(samples) + "\n")
+              for index, (gene, row) in enumerate(zip(rss_genes, values)):
+                  stream.write(f"ENSG{index:011d}.1\t{gene}\t" + "\t".join(map(str, row)) + "\n")
           PY
       - name: Run container and verify the web report
         run: |
@@ -64,5 +90,7 @@ jobs:
           done
           grep -q "Radiotherapy RNA-seq data explorer" smoke/report.html
           grep -q "Outcome analysis" smoke/report.html
+          grep -q "Cell-line radiation-response validation" smoke/report.html
           curl --fail --silent http://127.0.0.1:8000/analysis/analysis_report.html -o /dev/null
           curl --fail --silent http://127.0.0.1:8000/exploration/baseline/expression_pca.png -o /dev/null
+          curl --fail --silent http://127.0.0.1:8000/preclinical/preclinical_report.html -o /dev/null

@@ -1,16 +1,55 @@
-# Exploratory analysis contract
+# Prespecified analysis plan
 
-Primary source: Cui et al. (2018), https://doi.org/10.1158/1078-0432.CCR-18-0825.
-Target: https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE253564.
-Trial and molecular report: https://doi.org/10.1038/s41467-023-44195-x and https://doi.org/10.1016/j.xcrm.2024.101438.
+## Version and scope
 
-1. Archive the processed pretreatment FPKM matrix and checksum. Keep GSE248378 post-treatment specimens separate from baseline.
-2. Link each pretreatment expression column to the exact Study number in Table S1. Map Study Arm 1 to durvalumab and Study Arm 2 to durvalumab plus SBRT. Use the published Pathology Response value and MPR definition to classify response; retain source and exclusions in config/clinical.csv and docs/clinical_metadata.md. The published 32-profile and 10/6 arm-2 group counts are cross-checks, never a rule for assigning labels.
-3. The baseline matrix contains an Entrez.ID annotation field in addition to gene symbols and sample profiles. Drop that annotation from the numeric expression matrix; do not count it as a sample. Do not silently alias or aggregate gene symbols.
-4. Use the source-verified, locked gene lists, coefficients, formula, direction, and expression transformation in config/rss.json and config/immune.json. The configurations were locked before outcome analysis. Missing genes, duplicate mappings, nonfinite expression, and unsupported formulas must stop analysis.
-5. Score all baseline samples without using outcome labels. The RNA-seq adaptation is log2(FPKM + 1), followed by per-gene standardization across baseline samples using sample SD. This is explicit and reproducible, but not an exact reproduction of the breast-cancer source preprocessing.
-6. Compare MPR and no-MPR scores within the durvalumab + SBRT arm using a two-sided exact rank-sum label permutation test including ties. Report medians, rank probability, and descriptive 95% stratified bootstrap percentile intervals (2,000 resamples; seed 4370); adjust the two prespecified signature tests with Holm. The intervals are unstable in this small cohort.
-7. Report signed within-sample gene ranks and leave-one-out effects as sensitivity analyses. These are not substitutes for the locked scores.
-8. Defer treatment-by-score interaction analyses until arm labels and event counts have been independently reviewed and a suitable method is prespecified. No treatment-benefit inference is implemented.
+This plan separates the primary external preclinical test from the exploratory clinical translation check. The published RSS is treated as fixed. No genes, weights, cutoffs, or model settings are selected from the outcome data.
 
-This is a reproducible exploratory contract, not a registered clinical validation study. Synthetic tests verify software behavior; the public-data crosswalk is checked separately against its source records.
+## Research question
+
+Does a breast-cancer radiosensitivity score transfer to NSCLC cell-line radiation survival, and is the score direction compatible with MPR in a separate small NSCLC cohort?
+
+## Aim 1: preclinical radiation-survival association
+
+### Population
+
+Use Yard et al. Supplementary Data 1 records whose `Site` is `lung` and whose source `Subhistology` is one of the explicit non-small-cell labels in `preclinical.py`. Small-cell lung cancer and unspecified labels are excluded. LUAD is defined as `adenocarcinoma` plus `bronchioloalveolar_adenocarcinoma`. The report shows the source count and the count remaining after exact CCLE matching; it does not force the expression-linked count to equal the source count.
+
+### Joining and expression scoring
+
+Normalize case and punctuation from `Cell Line` plus `Site` and match against CCLE sample columns. Keep one-to-one exact normalized matches only. Do not fuzzy match or impute. Read gene symbols from the CCLE GCT `Description` column, retain the Ensembl `Name` identifiers for the audit, and sum repeated Ensembl rows sharing an RSS symbol before transformation. Drop cell-line profiles missing any of the 34 RSS genes.
+
+For each signature gene, transform RPKM as `log2(RPKM + 1)` and standardize across CCLE cell-line profiles complete for the fixed RSS using the sample standard deviation. Apply the locked coefficient and direction from `config/rss.json` unchanged. No outcome-informed normalization, gene selection, or threshold is used.
+
+### Endpoints and tests
+
+The primary endpoint is the source study’s integral-survival AUC, which integrates survival across 1, 2, 3, 4, 5, 6, 8, and 10 Gy and is scaled from 0 (completely sensitive) to 7 (completely resistant). The primary effect is Spearman’s rank correlation between RSS and AUC in matched NSCLC lines. The prespecified LUAD subgroup repeats the same estimate.
+
+For each estimate, use 10,000 two-sided Monte Carlo permutations of AUC among cell lines and 2,000 percentile bootstrap resamples of cell lines. The random seeds are fixed and recorded. Holm adjustment covers the two planned tests (NSCLC and LUAD). An estimate with an uncomputable or constant score is an explicit analysis failure, not grounds to change the locked scoring rule.
+
+### Prespecified sensitivity and interpretation analyses
+
+1. **Histology-adjusted sensitivity:** rank RSS and AUC, residualize both rank variables against source subhistology indicators, and correlate residuals. Permute AUC ranks within subhistology and bootstrap within subhistology to preserve observed subtype composition. This checks whether a pooled association is driven only by between-subtype differences. It is not a third confirmatory hypothesis test.
+2. **RSS component exploration:** correlate each oriented weighted gene contribution with AUC in NSCLC. Report all 34 correlations and Benjamini–Hochberg q-values; label them exploratory and do not use them to change the signature.
+3. **Join sensitivity:** report all source lines, exact matches, ambiguous identifiers, and complete-expression exclusions. The primary analysis includes only one-to-one exact normalized joins.
+
+## Aim 2: clinical translation check
+
+Use pretreatment GSE253564 expression and [`config/clinical.csv`](../config/clinical.csv), which is crosswalked to the source trial table. Require verified sample ID, patient ID, baseline status, treatment arm, and MPR label. Calculate locked RSS and immune scores before joining labels. The primary clinical comparison remains RSS versus MPR within the durvalumab + SBRT arm; the locked immune score is secondary.
+
+Use the existing two-sided exact label-permutation comparison and rank probability. Bootstrap intervals are descriptive because the combination arm has only 16 eligible patients (10 MPR and 6 no MPR). Holm adjustment covers the two patient signatures. Do not estimate treatment-by-score interaction, classifier accuracy, an ROC curve, clinical utility, or a radiation-specific causal effect.
+
+## Missingness and exclusions
+
+- Missing required RSS gene coverage stops the preclinical score rather than triggering gene substitution.
+- A CCLE row missing one or more required expression values is excluded from scoring without imputation and is visible in join or sample-flow outputs.
+- Unmatched and ambiguous cell-line records remain in `cell_line_join_audit.csv`.
+- Clinical rows with an unverified label, unresolved patient, absent expression profile, unresolved outcome, or non-baseline status remain in `sample_flow.csv` with an exclusion reason.
+- Repeated eligible patient samples stop the clinical analysis pending reconciliation.
+
+## Reproducibility records
+
+Each report includes source paths, SHA-256 checksums, signature specification, cell-line/sample counts, transform choices, random seeds, software versions, and analysis parameters. Unit and synthetic end-to-end tests verify implementation behavior. They do not validate biological association or source labels.
+
+## Interpretation boundaries
+
+The cell-line AUC measures in-vitro survival after a multi-dose irradiation assay. It does not represent patient-level tumor response or delivered dose. The MPR label comes from a combined neoadjuvant treatment setting and cannot isolate SBRT’s causal effect. The project has no patient-specific RT plan, RTDOSE, RTSTRUCT, dose-volume histogram, or organ-at-risk dose data. Findings are exploratory and are not for clinical decision-making.
