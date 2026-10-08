@@ -92,6 +92,7 @@ Required fields:
 | `baseline` | `1` for verified pretreatment samples, otherwise `0` |
 | `arm` | `durvalumab` or `durvalumab_sbrt` |
 | `mpr` | `1` for MPR, `0` for no MPR; leave unresolved values blank until verified |
+| `pathology_response_signed_pct` | Optional source audit field; the bundled mapping retains the signed Pathology Response value from Table S1 |
 | `label_source` | Paper/table/record that supports the sample and clinical labels |
 | `verified` | `1` only after the sample-to-patient, baseline, arm, and MPR mapping has been checked |
 
@@ -108,7 +109,7 @@ The cohort is small. Bootstrap intervals are unstable, a non-significant result 
 
 ## What the reports contain
 
-The combined explorer is available at `exploration/index.html`; the Docker landing page is at the run folder's `index.html`. When valid clinical labels are provided, the analysis report is at `analysis/analysis_report.html`.
+The combined explorer is available at `exploration/index.html`; the Docker landing page is at the run folder's `index.html`. When the clinical labels validate against the baseline samples, the analysis report is at `analysis/analysis_report.html`.
 
 | Output | Contents |
 | --- | --- |
