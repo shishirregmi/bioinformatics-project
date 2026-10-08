@@ -30,7 +30,7 @@ jobs:
                   target.write_bytes(response.read())
 
           fetch("https://ftp.ncbi.nlm.nih.gov/geo/series/GSE253nnn/GSE253564/suppl/GSE253564_Pre-treatment_Samples_Pubs_FPKMs.txt.gz", matrix_path)
-          expression = pd.read_csv(matrix_path, sep="\\t", index_col=0, compression="gzip")
+          expression = pd.read_csv(matrix_path, sep="\t", index_col=0, compression="gzip")
           print("BASELINE_SHAPE", expression.shape)
           print("BASELINE_SAMPLE_IDS", list(expression.columns))
 
