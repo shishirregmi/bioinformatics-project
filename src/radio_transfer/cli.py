@@ -10,6 +10,7 @@ import pandas as pd
 import scipy
 
 from .core import checksum, holm_two, load_expression, load_metadata, load_signature, rank_effect, rank_test, score_expression
+from .visualize import run as visualize
 
 GEO_URL = "https://ftp.ncbi.nlm.nih.gov/geo/series/GSE253nnn/GSE253564/suppl/GSE253564_Pre-treatment_Samples_Pubs_FPKMs.txt.gz"
 
@@ -104,6 +105,13 @@ def main():
     analysis.add_argument("--signatures", nargs=2, required=True)
     analysis.add_argument("--output", default="results/run")
     analysis.set_defaults(func=run)
+    figures = sub.add_parser("visualize", help="Create exploratory plots and explanatory notes")
+    figures.add_argument("--expression", required=True)
+    figures.add_argument("--metadata", help="Optional verified clinical metadata CSV")
+    figures.add_argument("--signatures", nargs=2, required=True)
+    figures.add_argument("--output", default="results/visualization")
+    figures.set_defaults(func=visualize)
+
     args = parser.parse_args()
     try:
         args.func(args)
