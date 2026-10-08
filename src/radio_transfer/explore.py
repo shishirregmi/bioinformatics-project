@@ -1,6 +1,7 @@
 """Profile both public expression matrices and create an interpretable data inventory."""
 
 import json
+from html import escape
 from pathlib import Path
 
 import matplotlib
@@ -227,6 +228,142 @@ def _write_inventory_doc(output, summaries, metadata_fields):
     (output / "data_inventory.md").write_text("\n".join(lines) + "\n")
 
 
+def _write_html_report(output, summaries, metadata_fields):
+    summary_by_key = {summary["dataset"]: summary for summary in summaries}
+    summary_cards = "".join(
+        f'<article class="metric"><span>{escape(summary["label"])}</span>'
+        f'<strong>{summary["sample_count"]} samples</strong>'
+        f'<small>{summary["gene_count"]:,} measured gene rows · {escape(summary["accession"])}</small></article>'
+        for summary in summaries
+    )
+    figure_specs = [
+        ("sample_expression_distributions.png", "Sample expression distributions", "log2(FPKM + 1) values across genes for each sample."),
+        ("expression_pca.png", "Expression PCA", "A descriptive projection of the most variable genes within this dataset."),
+        ("signature_gene_coverage.png", "Signature gene coverage", "Exact symbol matches for the fixed RSS and immune signatures."),
+        ("signature_coefficients.png", "Signature coefficients", "Published source weights; these are not patient expression values."),
+        ("signature_expression_heatmap.png", "Signature expression heatmap", "Per-gene standardized expression across samples."),
+        ("signature_scores_by_mpr.png", "Signature scores by MPR", "Shown only when complete verified response labels are supplied."),
+    ]
+    dataset_sections = []
+    for key in ("baseline", "post_treatment"):
+        summary = summary_by_key[key]
+        cards = []
+        for filename, title, caption in figure_specs:
+            relative = f"{key}/{filename}"
+            if (output / relative).exists():
+                cards.append(
+                    f'<figure class="figure"><a href="{escape(relative, quote=True)}">'
+                    f'<img loading="lazy" src="{escape(relative, quote=True)}" alt="{escape(title)} for {escape(summary["label"])}"></a>'
+                    f'<figcaption><strong>{escape(title)}</strong><span>{escape(caption)}</span></figcaption></figure>'
+                )
+        dataset_sections.append(
+            f'<section id="{key}" class="dataset"><div class="section-heading">'
+            f'<div><p class="eyebrow">{escape(summary["accession"])}</p><h2>{escape(summary["label"])}</h2></div>'
+            f'<a class="text-link" href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc={escape(summary["accession"], quote=True)}" target="_blank" rel="noreferrer">Open GEO record ↗</a></div>'
+            f'<div class="gallery">{"".join(cards)}</div></section>'
+        )
+    parameter_rows = "".join(
+        f'<tr><td><code>{escape(name)}</code></td><td>{escape(source)}</td><td>{escape(meaning)}</td><td>{escape(use)}</td></tr>'
+        for name, source, meaning, use in PARAMETERS
+    )
+    metadata_note = (
+        f'<p>Clinical metadata fields supplied in this run: {len(metadata_fields)}. '
+        '<a href="clinical_metadata_fields.csv">Open the field completeness report</a>.</p>'
+        if metadata_fields else
+        '<p>No clinical metadata CSV was supplied. Treatment-arm and MPR plots are therefore omitted; no labels are inferred.</p>'
+    )
+    file_links = [
+        ("data_inventory.md", "Data inventory and source links"),
+        ("parameter_inventory.csv", "Parameter definitions"),
+        ("signature_parameters.csv", "Locked signature settings"),
+        ("sample_parameter_profile.csv", "Per-sample expression profile"),
+        ("gene_parameter_profile.csv", "Per-gene expression profile"),
+        ("clinical_metadata_fields.csv", "Clinical field completeness"),
+        ("data_inventory.json", "Input and checksum manifest"),
+    ]
+    downloads = "".join(
+        f'<a class="file-link" href="{escape(filename, quote=True)}">{escape(label)} <span>CSV / JSON / Markdown ↗</span></a>'
+        for filename, label in file_links if (output / filename).exists()
+    )
+    html = f'''<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Exploratory views and data inventory for the public NSCLC radiotherapy RNA-seq datasets.">
+  <title>Radiotherapy RNA-seq data explorer</title>
+  <style>
+    :root {{ color-scheme: light; --ink:#13263b; --muted:#607186; --line:#dce5ec; --paper:#f4f7fa; --teal:#247a83; --orange:#d87846; --white:#fff; }}
+    * {{ box-sizing:border-box; }}
+    body {{ margin:0; background:var(--paper); color:var(--ink); font:15px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif; }}
+    header {{ padding:48px max(24px,calc((100vw - 1180px)/2)); color:#fff; background:linear-gradient(120deg,#10263d,#1d5364); }}
+    header p {{ max-width:800px; margin:10px 0 0; color:#d8e8ef; }}
+    .eyebrow {{ margin:0 0 6px; color:#8ad0c9; font-size:12px; font-weight:750; letter-spacing:.12em; text-transform:uppercase; }}
+    h1 {{ margin:0; max-width:850px; font-size:clamp(30px,5vw,48px); line-height:1.1; letter-spacing:-.03em; }}
+    h2 {{ margin:0; font-size:26px; letter-spacing:-.02em; }}
+    h3 {{ margin:0 0 8px; }}
+    nav {{ display:flex; flex-wrap:wrap; gap:10px; margin-top:22px; }}
+    nav a {{ padding:7px 12px; border:1px solid #7795a5; border-radius:999px; color:#fff; text-decoration:none; }}
+    main {{ width:min(1180px,calc(100% - 32px)); margin:28px auto 64px; }}
+    section {{ margin:24px 0; padding:24px; border:1px solid var(--line); border-radius:16px; background:var(--white); box-shadow:0 8px 24px #20384b0b; }}
+    .metrics {{ display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px; margin:18px 0; }}
+    .metric {{ display:grid; gap:4px; padding:18px; border:1px solid var(--line); border-radius:12px; background:#fbfdfe; }}
+    .metric span,.metric small {{ color:var(--muted); }}
+    .metric strong {{ font-size:24px; }}
+    .section-heading {{ display:flex; align-items:end; justify-content:space-between; gap:16px; margin-bottom:18px; }}
+    .text-link {{ color:var(--teal); font-weight:700; text-decoration:none; }}
+    .gallery {{ display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,440px),1fr)); gap:16px; }}
+    .figure {{ overflow:hidden; margin:0; border:1px solid var(--line); border-radius:12px; background:#fff; }}
+    .figure a {{ display:block; background:#f8fafb; }}
+    .figure img {{ display:block; width:100%; height:auto; }}
+    figcaption {{ display:grid; gap:3px; padding:13px 15px 15px; }}
+    figcaption span {{ color:var(--muted); font-size:13px; }}
+    .table-wrap {{ overflow:auto; }}
+    table {{ width:100%; min-width:780px; border-collapse:collapse; text-align:left; }}
+    th,td {{ padding:11px 12px; border-bottom:1px solid var(--line); vertical-align:top; }}
+    th {{ color:#42576c; background:#f5f8fa; font-size:12px; letter-spacing:.04em; text-transform:uppercase; }}
+    td {{ color:#334b60; }}
+    code {{ color:#155d66; font-size:.95em; }}
+    .callout {{ border-left:4px solid var(--orange); padding:12px 16px; background:#fff7f1; }}
+    .files {{ display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:10px; }}
+    .file-link {{ display:grid; gap:4px; padding:13px; border:1px solid var(--line); border-radius:10px; color:var(--ink); text-decoration:none; }}
+    .file-link:hover {{ border-color:var(--teal); }}
+    .file-link span {{ color:var(--muted); font-size:12px; }}
+    footer {{ padding:22px 0; color:var(--muted); text-align:center; font-size:13px; }}
+    @media(max-width:600px) {{ header {{ padding:34px 20px; }} section {{ padding:18px; }} .section-heading {{ align-items:start; flex-direction:column; }} }}
+  </style>
+</head>
+<body>
+  <header>
+    <p class="eyebrow">Bioinformatics project · exploratory proof of concept</p>
+    <h1>Radiotherapy RNA-seq data explorer</h1>
+    <p>Inspect the pretreatment and post-treatment datasets, see what each parameter represents, and open the generated figures and data profiles.</p>
+    <nav><a href="#overview">Overview</a><a href="#baseline">Pretreatment</a><a href="#post_treatment">Post-treatment</a><a href="#parameters">Parameters</a><a href="#files">Data files</a></nav>
+  </header>
+  <main>
+    <section id="overview">
+      <p class="eyebrow">Data at a glance</p><h2>Two expression matrices, explored separately</h2>
+      <div class="metrics">{summary_cards}</div>
+      <div class="callout"><strong>Sample-count check.</strong> The paper reports 46 post-treatment tissue samples, while the GEO series currently lists 29. Reconcile this difference against the study sample table before calling the deposited matrix complete.</div>
+      <figure class="figure" style="margin-top:18px"><a href="data_overview.png"><img src="data_overview.png" alt="Sample counts, gene counts, and per-sample median FPKM for both datasets"></a><figcaption><strong>Dataset overview</strong><span>Counts and simple sample-level FPKM QC; not differential expression.</span></figcaption></figure>
+    </section>
+    {''.join(dataset_sections)}
+    <section id="parameters"><p class="eyebrow">Data dictionary</p><h2>What the parameters mean and how the project uses them</h2>
+      <div class="table-wrap"><table><thead><tr><th>Parameter</th><th>Source</th><th>Meaning</th><th>Project use</th></tr></thead><tbody>{parameter_rows}</tbody></table></div>
+      {metadata_note}
+      <p>The protocol describes SBRT at 8 Gy × 3 daily fractions (24 Gy total) with durvalumab. That is a trial-level regimen; the expression matrices do not include patient-specific radiation plans or dose-volume data.</p>
+    </section>
+    <section id="files"><p class="eyebrow">Inspect the complete profiles</p><h2>Data files from this run</h2><div class="files">{downloads}</div>
+      <p style="margin-top:18px"><a class="text-link" href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE253564" target="_blank" rel="noreferrer">GSE253564 ↗</a> · <a class="text-link" href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE248378" target="_blank" rel="noreferrer">GSE248378 ↗</a> · <a class="text-link" href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10982989/" target="_blank" rel="noreferrer">Study paper ↗</a></p>
+    </section>
+  </main>
+  <footer>Exploratory views only. No patient labels are inferred; outcome comparisons require verified clinical mapping.</footer>
+</body>
+</html>
+'''
+    (output / "index.html").write_text(html)
+
+
 def run(args):
     output = Path(args.output)
     if output.exists() and any(output.iterdir()):
@@ -276,4 +413,5 @@ def run(args):
         ],
     }
     (output / "data_inventory.json").write_text(json.dumps(manifest, indent=2) + "\n")
+    _write_html_report(output, summaries, metadata_fields)
     print(f"Saved data inventory and per-dataset figures to {output}")
