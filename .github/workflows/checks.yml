@@ -10,6 +10,57 @@ jobs:
           python-version: '3.11'
       - run: pip install -e .
       - run: python -m unittest discover -s tests -v
+      - name: Inspect public cohort crosswalk (temporary)
+        run: |
+          pip install openpyxl
+          python - <<'PY'
+          from pathlib import Path
+          from urllib.request import Request, urlopen
+          import re
+          import pandas as pd
+
+          root = Path("/tmp/source-inspection")
+          root.mkdir()
+          matrix_path = root / "baseline.txt.gz"
+          workbook_path = root / "table_s1.xlsx"
+
+          def fetch(url, target):
+              request = Request(url, headers={"User-Agent": "Mozilla/5.0 (compatible; academic-research/1.0)"})
+              with urlopen(request, timeout=90) as response:
+                  target.write_bytes(response.read())
+
+          fetch("https://ftp.ncbi.nlm.nih.gov/geo/series/GSE253nnn/GSE253564/suppl/GSE253564_Pre-treatment_Samples_Pubs_FPKMs.txt.gz", matrix_path)
+          expression = pd.read_csv(matrix_path, sep="\\t", index_col=0, compression="gzip")
+          print("BASELINE_SHAPE", expression.shape)
+          print("BASELINE_SAMPLE_IDS", list(expression.columns))
+
+          urls = [
+              "https://pmc.ncbi.nlm.nih.gov/articles/PMC10982989/bin/mmc2.xlsx",
+              "https://pmc.ncbi.nlm.nih.gov/articles/instance/10982989/bin/mmc2.xlsx",
+              "https://ars.els-cdn.com/content/image/1-s2.0-S2666379124000612-mmc2.xlsx",
+          ]
+          errors = []
+          for url in urls:
+              try:
+                  fetch(url, workbook_path)
+                  if workbook_path.read_bytes()[:2] == b"PK":
+                      break
+                  errors.append(f"Not an xlsx response: {url}")
+              except Exception as exc:
+                  errors.append(f"{url}: {type(exc).__name__}: {exc}")
+          else:
+              raise RuntimeError("Could not fetch Table S1: " + " | ".join(errors))
+
+          book = pd.ExcelFile(workbook_path)
+          print("TABLE_S1_SHEETS", book.sheet_names)
+          pattern = re.compile(r"sample|specimen|GEO|accession|patient|case|arm|MPR|path|pre|post|RNA.?seq|response", re.I)
+          for sheet in book.sheet_names:
+              table = pd.read_excel(workbook_path, sheet_name=sheet, dtype=str)
+              columns = [column for column in table.columns if pattern.search(str(column))]
+              print("TABLE_S1_SHEET", sheet, "SHAPE", table.shape, "CANDIDATE_COLUMNS", columns)
+              if columns:
+                  print(table[columns].to_string(index=False))
+          PY
       - run: sh -n docker-entrypoint.sh
       - name: Simulate Windows CRLF checkout
         run: python -c "from pathlib import Path; path = Path('docker-entrypoint.sh'); path.write_bytes(path.read_bytes().replace(b'\\n', b'\\r\\n'))"
