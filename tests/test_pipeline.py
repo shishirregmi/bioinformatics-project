@@ -40,6 +40,8 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual((int((combo.mpr == 1).sum()), int((combo.mpr == 0).sum())), (10, 6))
         self.assertTrue(metadata.label_source.str.contains("PMC10982989 Table S1").all())
         self.assertTrue((metadata.verified == "1").all())
+        source_response = metadata.pathology_response_signed_pct.astype(float).abs() >= 90
+        np.testing.assert_array_equal(source_response.to_numpy(), metadata.mpr.to_numpy() == 1)
 
     def test_unlocked_signature_refused(self):
         path = Path(__file__).parents[1] / "config/signature_template.json"
