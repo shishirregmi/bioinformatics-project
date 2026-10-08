@@ -36,6 +36,16 @@ jobs:
               values = rng.lognormal(mean=1, sigma=1, size=(len(genes), count))
               columns = [f"{name}_{i}" for i in range(count)]
               pd.DataFrame(values, index=genes, columns=columns).to_csv(output / filename, sep="\t", compression="gzip")
+          clinical = pd.DataFrame({
+              "sample_id": [f"baseline_{i}" for i in range(8)],
+              "patient_id": [f"patient_{i}" for i in range(8)],
+              "baseline": ["1"] * 8,
+              "arm": ["durvalumab", "durvalumab_sbrt"] * 4,
+              "mpr": ["0", "0", "0", "1", "0", "1", "0", "0"],
+              "label_source": ["synthetic CI fixture"] * 8,
+              "verified": ["1"] * 8,
+          })
+          clinical.to_csv("smoke/data/clinical.csv", index=False)
           PY
       - name: Run container and verify the web report
         run: |
@@ -43,6 +53,7 @@ jobs:
           docker run -d --rm --name radio-transfer-smoke -p 8000:8000 \
             -v "$PWD/smoke/data:/app/data" \
             -v "$PWD/smoke/results:/app/results" \
+            -e METADATA=/app/data/clinical.csv \
             radio-transfer:test
           trap 'docker stop radio-transfer-smoke >/dev/null 2>&1 || true' EXIT
           attempt=0
@@ -52,4 +63,6 @@ jobs:
             sleep 1
           done
           grep -q "Radiotherapy RNA-seq data explorer" smoke/report.html
-          curl --fail --silent http://127.0.0.1:8000/baseline/expression_pca.png -o /dev/null
+          grep -q "Outcome analysis" smoke/report.html
+          curl --fail --silent http://127.0.0.1:8000/analysis/analysis_report.html -o /dev/null
+          curl --fail --silent http://127.0.0.1:8000/exploration/baseline/expression_pca.png -o /dev/null

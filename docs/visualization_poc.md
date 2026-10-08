@@ -4,7 +4,7 @@
 
 The study has two processed RNA-seq FPKM matrices. Each matrix is organized with gene identifiers as rows and tumor sample IDs as columns. The baseline series contains 32 pretreatment samples. The post-treatment GEO series currently lists 29 samples. The paper describes 46 post-treatment tissue samples, so reconcile the deposited GEO sample set with the paper's Table S1 before calling it complete.
 
-The project also uses two locked gene signatures: a 34-gene breast-cancer radiosensitivity signature (RSS) and a 4-gene immune signature. The JSON configurations contain gene symbols, published weights, score direction, expression transformation, source, and lock/verification fields. Patient-level clinical labels are a separate input; they are not inferred from expression values, sample names, or published cohort counts.
+The project also uses two locked gene signatures: a 34-gene breast-cancer radiosensitivity signature (RSS) and a 4-gene immune signature. The JSON configurations contain gene symbols, published weights, score direction, expression transformation, source, and lock/verification fields. A minimal public clinical crosswalk for all 32 baseline profiles is included in `config/clinical.csv`, derived from the study's Table S1 and documented in `docs/clinical_metadata.md`. Labels are not inferred from expression values, sample names, or published cohort counts.
 
 | Data block | Parameters available | How it can help this project |
 | --- | --- | --- |
@@ -19,18 +19,19 @@ Both RNA-seq series report NovaSeq 6000 data processed against hg19 using STAR 2
 
 ## Visualize and profile both expression datasets
 
-Download both processed matrices and run the combined explorer:
+Download both processed matrices and run the combined explorer with the source-verified baseline mapping:
 
 ```bash
 radio-transfer download --dataset all --output data/raw
 radio-transfer explore \
   --baseline-expression data/raw/GSE253564_Pre-treatment_Samples_Pubs_FPKMs.txt.gz \
   --post-treatment-expression data/raw/GSE248378_Durva_Post_FPKMs.txt.gz \
+  --metadata config/clinical.csv \
   --signatures config/rss.json config/immune.json \
   --output results/data_exploration
 ```
 
-To include treatment-arm and response views, provide the verified baseline clinical mapping using `config/metadata_template.csv`:
+To use a different or corrected clinical mapping, start from `config/metadata_template.csv` and provide the completed CSV:
 
 ```bash
 radio-transfer explore \
@@ -45,7 +46,7 @@ A single matrix can still be visualized with `radio-transfer visualize --express
 
 ## Launch the whole workflow with Docker
 
-Build the image once, then run one container command to download both matrices if missing, generate all figures and inventories, and serve the web report:
+Build the image once, then run one container command to download both matrices if missing, generate all figures and inventories, run the MPR analysis with `config/clinical.csv`, and serve the web report:
 
 ```bash
 docker build -t radio-transfer .
@@ -56,11 +57,11 @@ docker run --rm -p 8000:8000 \
   radio-transfer
 ```
 
-Open [http://localhost:8000](http://localhost:8000). The container prints the report folder, persists downloaded matrices under `data/`, and saves each run under a timestamped directory in `results/`. To include verified treatment-arm and response plots, place the completed mapping at `data/clinical.csv` before running. Press Ctrl+C to stop serving the page. The report page is also generated as `index.html` in the run folder.
+Open [http://localhost:8000](http://localhost:8000). The container prints the report folder, persists downloaded matrices under `data/`, and saves each run under a timestamped directory in `results/`. It uses the bundled mapping by default; override it with `-e METADATA=/app/data/clinical.csv` if needed. The landing page links to the explorer and statistical report. Press Ctrl+C to stop serving the page.
 
 ## Generated views and files
 
-The combined command creates a run-level inventory plus a separate set of figures for each timepoint. It does not pool baseline and post-treatment samples or assume the samples are matched.
+The combined command creates a run-level inventory, separate figures for each timepoint, and a response-analysis report. The `Entrez.ID` field in the GEO files is gene annotation, not a sample, and is removed before expression summaries. Baseline and post-treatment samples are not pooled or assumed to be matched.
 
 | Output | What it represents | How it may help |
 | --- | --- | --- |
@@ -77,6 +78,7 @@ The combined command creates a run-level inventory plus a separate set of figure
 | `clinical_metadata_fields.csv` | Field names, completeness, and unique-value counts from supplied metadata | Shows what clinical parameters were supplied without copying any values into the inventory. |
 | `signature_parameters.csv`, `data_inventory.json`, `data_inventory.md` | Signature definitions, input hashes, matrix dimensions, interpretation notes, and source links | Makes the exploration reviewable and reproducible. |
 | `index.html` | Browser page with the figures, data dictionary, and inventory file links | View all generated plots and parameter definitions in one place. |
+| `analysis/analysis_report.html`, `analysis/statistics.csv` | Fixed-signature MPR score plot and exact-test results | Review exploratory association estimates and their limits. |
 
 ## What the radiotherapy information does and does not contain
 

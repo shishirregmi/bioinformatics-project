@@ -35,6 +35,7 @@ DATASETS = {
 
 PARAMETERS = [
     ("gene_id", "Expression matrix", "Gene identifier in the first column; the project expects exact symbols for signature matching.", "Map matrix rows to fixed signature genes; reconcile unmatched IDs explicitly."),
+    ("Entrez.ID", "Expression matrix annotation", "Gene-level Entrez identifier included in the GEO table; it is not an expression sample.", "Keep available for identifier review, but exclude this annotation column from sample-level expression analysis."),
     ("sample_id", "Expression matrix / GEO", "Identifier for one RNA-seq profile; expression-matrix columns are samples.", "Link expression to GEO and verified clinical records; never infer outcomes from the ID."),
     ("FPKM", "Expression matrix", "Processed fragments-per-kilobase-per-million expression value for a gene in a sample.", "Describe expression distributions, PCA, gene coverage, and fixed signature scores."),
     ("RNA-seq processing", "GEO sample records", "Illumina NovaSeq 6000; reads aligned to hg19 with STAR 2.4.0f1; gene FPKMs estimated with Cufflinks 2.0.2 and GENCODE v19.", "Check assay and reference compatibility before comparing with other cohorts or remapping gene identifiers."),
@@ -43,6 +44,7 @@ PARAMETERS = [
     ("baseline", "Verified clinical table", "Whether the profile is a pretreatment baseline sample (1/0).", "Restrict the prespecified baseline signature-transfer analysis."),
     ("arm", "Verified clinical table", "Durvalumab alone or durvalumab plus SBRT.", "Describe randomized treatment groups; an arm label is not a patient-specific delivered-dose record."),
     ("mpr", "Verified clinical table", "Major pathologic response indicator (1/0).", "Exploratory outcome grouping only after sample-to-patient linkage and source verification."),
+    ("pathology_response_signed_pct", "Study Table S1", "Signed source value for percent pathology response; the sign is retained as published.", "Audit the binary MPR label against the published 90% cancer-cell-killing threshold."),
     ("label_source", "Verified clinical table", "Source document or table supporting an individual clinical label.", "Audit clinical mapping and avoid guessed labels."),
     ("verified", "Verified clinical table", "Whether the clinical mapping has been checked (1/0).", "Exclude unresolved labels from outcome plots and analysis."),
     ("gene", "Locked signature configuration", "Gene included in the fixed RSS or immune signature.", "Check exact-symbol coverage and explain the score components."),

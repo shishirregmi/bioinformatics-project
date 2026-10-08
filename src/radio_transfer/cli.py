@@ -11,6 +11,7 @@ import scipy
 
 from .core import checksum, holm_two, load_expression, load_metadata, load_signature, rank_effect, rank_test, score_expression
 from .explore import run as explore
+from .report import write_analysis_report
 from .visualize import run as visualize
 
 GEO_DATASETS = {
@@ -72,6 +73,7 @@ def run(args):
     qc = pd.DataFrame({"gene": expression.index, "mean_fpkm": expression.mean(axis=1),
                        "constant": expression.nunique(axis=1) == 1})
     qc.to_csv(out / "gene_qc.csv", index=False)
+    write_analysis_report(out, scores, included, results)
     inputs = [args.expression, args.metadata, *args.signatures]
     manifest = {"created_utc": datetime.now(timezone.utc).isoformat(),
                 "inputs": [{"path": str(path), "sha256": checksum(path)} for path in inputs],

@@ -1,31 +1,43 @@
 # Cross-cancer radiotherapy signature transfer
 
-Initial implementation of the attached proposal: evaluate fixed Cui et al. breast-cancer radiosensitivity and immune signatures in NSCLC RNA-seq from baseline GSE253564 and post-treatment GSE248378. The proposal's contents concern radiotherapy, despite its chemotherapy filename.
+An exploratory, reproducible analysis of whether a **fixed breast-cancer radiosensitivity signature** is associated with major pathologic response (MPR) in pretreatment non-small-cell lung cancer (NSCLC) samples from a neoadjuvant durvalumab ± stereotactic body radiotherapy (SBRT) trial.
 
-## Run
+The project is intended to make the data, scoring choices, and limits clear for review with a professor. It is not a clinical prediction tool.
 
-```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -e .
-radio-transfer download --output data/raw
-radio-transfer analyze --expression data/raw/GSE253564_Pre-treatment_Samples_Pubs_FPKMs.txt.gz --metadata data/clinical.csv --signatures config/rss.json config/immune.json --output results/run_01
-```
+## Research question
 
-To download both public expression matrices for exploration:
+- **Primary:** Is the published 34-gene radiosensitivity signature (RSS) associated with MPR within the durvalumab + SBRT arm?
+- **Secondary:** Is the published 4-gene immune signature associated with MPR in that same arm?
+- **Exploratory only:** A treatment-by-score interaction may be considered after all sample labels are verified and an appropriate small-sample method is prespecified. No treatment-benefit claim is made by this project.
 
-```bash
-radio-transfer download --dataset all --output data/raw
-radio-transfer explore \
-  --baseline-expression data/raw/GSE253564_Pre-treatment_Samples_Pubs_FPKMs.txt.gz \
-  --post-treatment-expression data/raw/GSE248378_Durva_Post_FPKMs.txt.gz \
-  --signatures config/rss.json config/immune.json \
-  --output results/data_exploration
-```
+The signatures, source links, coefficients, direction, preprocessing adaptation, and lock date are recorded in [`config/rss.json`](config/rss.json) and [`config/immune.json`](config/immune.json). The source scoring process was developed for breast-cancer data. This project uses an explicitly documented RNA-seq adaptation and does not reuse the source cohort's cutoffs as NSCLC thresholds.
 
-The combined exploration creates separate figures for each timepoint, full per-sample and per-gene expression profiles, a parameter inventory, and a data dictionary describing how each field can be used in the project. GSE248378 currently lists 29 GEO samples, while the paper reports 46 post-treatment tissue samples; reconcile the deposited samples with Table S1 before treating it as complete. See [the visualization and data inventory guide](docs/visualization_poc.md) for all data links, parameter descriptions, and interpretation limits.
+## Data
 
-## Run the full explorer in one Docker run
+| Data | What it contains | Project use |
+| --- | --- | --- |
+| [GSE253564](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE253564) | Processed pretreatment tumor RNA-seq FPKM matrix; the paper reports 32 samples, 16 per arm | Primary signature scoring and response analysis after sample-to-patient labels are verified |
+| [GSE248378](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE248378) | Processed post-treatment resection RNA-seq FPKM matrix | Separate post-treatment expression exploration; do not treat as matched pairs until patient linkage is verified |
+| [GEO sample records](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE253564) | Sample identifiers and assay/provenance details | Check expression identifiers and specimen provenance |
+| Clinical metadata CSV | Sample ID, patient ID, baseline status, treatment arm, MPR, source, verification flag | Select eligible baseline samples and define MPR groups; labels are never inferred from filenames or counts |
+| Trial protocol | Combination arm used durvalumab with SBRT at 8 Gy × 3 daily fractions (24 Gy total) | Describe the study-level RT regimen; this is not a record of an individual's delivered dose |
+
+The study paper reports **46 post-treatment tissues**, while GSE248378 has historically listed **29 GEO samples**. Reconcile the series and the paper's Table S1 before calling the deposited post-treatment matrix complete. This project does not contain patient-specific RT plans, RTDOSE/RTSTRUCT DICOM, dose-volume histograms, or organ-at-risk dosimetry.
+
+### Source links
+
+- [Direct GSE253564 pretreatment FPKM matrix](https://ftp.ncbi.nlm.nih.gov/geo/series/GSE253nnn/GSE253564/suppl/GSE253564_Pre-treatment_Samples_Pubs_FPKMs.txt.gz)
+- [Direct GSE248378 post-treatment FPKM matrix](https://ftp.ncbi.nlm.nih.gov/geo/series/GSE248nnn/GSE248378/suppl/GSE248378_Durva_Post_FPKMs.txt.gz)
+- [Study article and supplementary files (including Table S1)](https://pmc.ncbi.nlm.nih.gov/articles/PMC10982989/)
+- [Cui et al. radiosensitivity signature source paper](https://doi.org/10.1158/1078-0432.CCR-18-0825)
+- [Cui signature supplement](https://aacr.figshare.com/articles/journal_contribution/22470557)
+- [Visualization and parameter guide](docs/visualization_poc.md)
+- [Analysis contract](docs/analysis_plan.md)
+- [Scoring details](docs/cui_scoring.md)
+
+## Run the full workflow with Docker
+
+From the repository root, build the image and run the container once:
 
 ```bash
 docker build -t radio-transfer .
@@ -36,42 +48,98 @@ docker run --rm -p 8000:8000 \
   radio-transfer
 ```
 
-The container downloads both GEO matrices if needed, generates the figures and data inventory, then serves the report page. Open [http://localhost:8000](http://localhost:8000). The downloaded matrices and generated reports remain in the mounted `data/` and `results/` folders. To include clinical plots, place a verified `clinical.csv` at `data/clinical.csv` before running. Stop the web server with Ctrl+C.
+Open [http://localhost:8000](http://localhost:8000). On the first run, the container downloads both public GEO matrices, builds the data inventory and figures, runs the fixed-signature MPR analysis using the reviewed public mapping in `config/clinical.csv`, and starts the local web page. It saves downloads under `data/raw/` and reports under a timestamped folder in `results/`. Stop the server with Ctrl+C.
 
-## Required inputs
+The bundled mapping is built from Table S1 and documented in [`docs/clinical_metadata.md`](docs/clinical_metadata.md). To supply a different or corrected mapping, place it at `data/clinical.csv` and run with `-e METADATA=/app/data/clinical.csv`.
 
-The expression TSV has gene symbols in its first column and sample IDs in its remaining columns. Non-symbol identifiers and duplicate gene mappings must be reconciled explicitly upstream; the pipeline does not guess aliases or aggregate duplicate genes.
-
-Create `clinical.csv` using `config/metadata_template.csv`. `baseline`, `mpr`, and `verified` use 1/0; arms are `durvalumab` or `durvalumab_sbrt`. Each label requires a source and a patient ID. Unverified/nonbaseline/unresolved samples are listed as excluded. Duplicate eligible patients stop analysis.
-
-Verified source coefficients are now supplied in `config/rss.json` and `config/immune.json`. See `docs/cui_scoring.md` for preprocessing choices and source verification. For other specifications, use `config/signature_template.json`: one `primary` RSS with exactly 34 genes, and one `secondary` immune signature. Each gene entry is `{"gene": "GENE_SYMBOL", "weight": 0.123}`. Obtain the actual genes, coefficients, transformation, and direction from the Cui paper and supplement. `direction` is +1 or -1 so larger oriented scores correspond to the published sensitive/immune-effective direction. Set `source_verified` to true and record `locked_at` only after checking and locking the source specification **before inspecting outcomes**. These declarations are an audit record, not independent proof of verification.
-
-Supported transforms are `identity`, `log2p1`, and `log2p1_gene_zscore` (SD across the baseline expression cohort; `zscore_ddof` selects population 0 or sample 1). Use one only if justified by the locked source method and platform adaptation. The engine is a weighted sum, not a claim that all source scoring methods are already reproduced; extend it if the supplement requires a different formula. There are deliberately no fabricated gene weights or patient response labels in this repository.
-
-## Outputs
-
-Scores, complete sample-flow/exclusion table, gene QC, exact two-sided rank permutation tests in the combination arm, rank probability effect sizes with stratified bootstrap percentile intervals, Holm correction across the two signatures, signed rank adaptation and leave-one-out effects, and a manifest with input SHA-256 hashes, signature specifications, versions, and seed.
-
-Rank probability is P(MPR score > non-MPR score) + half the tie probability. It is reported as an association effect, not predictive accuracy. Signed rank adaptation ranks every measured gene within each sample and averages signed ranks; it is separate from the source score. The implementation has no label-driven gene selection, classifier fitting, threshold optimization, or ROC claims.
-
-## Exploratory visualizations
-
-Generate professor-ready plots from the baseline expression matrix:
+### Run with Python instead
 
 ```bash
-radio-transfer visualize --expression data/raw/GSE253564_Pre-treatment_Samples_Pubs_FPKMs.txt.gz --signatures config/rss.json config/immune.json --output results/visualization_poc
+python -m venv .venv
+source .venv/bin/activate
+pip install -e .
+
+radio-transfer download --dataset all --output data/raw
+radio-transfer explore \
+  --baseline-expression data/raw/GSE253564_Pre-treatment_Samples_Pubs_FPKMs.txt.gz \
+  --post-treatment-expression data/raw/GSE248378_Durva_Post_FPKMs.txt.gz \
+  --signatures config/rss.json config/immune.json \
+  --output results/exploration
 ```
 
-The command writes expression-distribution and PCA plots, exact symbol-coverage and coefficient plots, a signature heatmap when all genes are present, and an MPR score comparison only when verified clinical metadata is supplied. It also writes `visualization_notes.md` explaining what each figure can and cannot support. For the baseline and post-treatment datasets together, use `radio-transfer explore` above; the matrices remain separate unless sample pairing is verified. No labels are inferred from sample names or published counts. Each combined exploration includes an `index.html` page that displays the figures and links the inventory files.
+To run the outcome analysis directly:
 
-See [the visualization proof of concept](docs/visualization_poc.md) for the study design, figure guide, interpretation limits, and how to add verified metadata.
+```bash
+radio-transfer analyze \
+  --expression data/raw/GSE253564_Pre-treatment_Samples_Pubs_FPKMs.txt.gz \
+  --metadata data/clinical.csv \
+  --signatures config/rss.json config/immune.json \
+  --output results/analysis
+```
 
-## Current status
+To generate figures for one matrix without the combined inventory, use `radio-transfer visualize --expression FILE --signatures config/rss.json config/immune.json --output results/figures`.
 
-Pipeline and synthetic tests are implemented. Published RSS and IMS coefficients and direction have been verified and supplied. Visualization code is implemented, but real-cohort figures have not been generated. Verified clinical linkage, identifier reconciliation, and an estimability-aware exploratory treatment interaction remain pending. Real cohort analysis has not run. Confirm the current GEO supplementary filename before downloading if it changes.
+## Clinical metadata requirements
+
+The repository includes [`config/clinical.csv`](config/clinical.csv), a verified minimal mapping for the 32 baseline expression profiles. It is crosswalked to the study's Table S1 and uses the published MPR definition; see [`docs/clinical_metadata.md`](docs/clinical_metadata.md) for the rules and validation counts. For a corrected or alternative source, start from [`config/metadata_template.csv`](config/metadata_template.csv) and record the evidence for each label in `label_source`.
+
+Required fields:
+
+| Field | Required value or meaning |
+| --- | --- |
+| `sample_id` | Exact column name from the pretreatment expression matrix |
+| `patient_id` | De-identified participant ID used to verify one eligible baseline sample per patient |
+| `baseline` | `1` for verified pretreatment samples, otherwise `0` |
+| `arm` | `durvalumab` or `durvalumab_sbrt` |
+| `mpr` | `1` for MPR, `0` for no MPR; leave unresolved values blank until verified |
+| `pathology_response_signed_pct` | Optional source audit field; the bundled mapping retains the signed Pathology Response value from Table S1 |
+| `label_source` | Paper/table/record that supports the sample and clinical labels |
+| `verified` | `1` only after the sample-to-patient, baseline, arm, and MPR mapping has been checked |
+
+All verified baseline records are reported in `sample_flow.csv`; unresolved, excluded, or expression-missing records remain visible with exclusion reasons. Duplicate eligible patient samples stop the analysis and require reconciliation. The paper's published group counts are checks on the crosswalk, **not** a way to assign labels to sample IDs.
+
+## Score and statistical methods
+
+1. Calculate each locked signature score for all pretreatment expression samples before joining MPR labels.
+2. Apply `log2(FPKM + 1)`, then standardize each gene across the pretreatment samples using the sample standard deviation. The signatures' configured direction is applied so the exported score direction is consistent. This is an explicit platform adaptation; the original work used breast-cancer data and the supplement does not specify every scaling choice needed for this RNA-seq matrix.
+3. Within the durvalumab + SBRT arm, compare MPR and no-MPR scores using a two-sided exact rank permutation test. Report group medians, a rank probability (MPR score greater than no-MPR score, with half weight for ties), and a descriptive stratified bootstrap interval. Holm adjustment covers the two prespecified signatures.
+4. Report a signed within-sample rank adaptation and leave-one-out effects as sensitivity checks. These do not replace the locked weighted scores.
+
+### First real-cohort run
+
+The first source-checked run used 32 baseline profiles, including 10 MPR and 6 no-MPR samples in the durvalumab + SBRT arm. For the RSS, the rank probability was **0.15** (95% bootstrap interval 0.00–0.383), with median oriented scores of −3.61 for MPR and 8.75 for no MPR (exact *p* = 0.0225; Holm-adjusted *p* = 0.0450). Since larger oriented scores point in the published favorable direction, this is an inverse association in this RNA-seq adaptation. The secondary immune signature had rank probability **0.267** (95% interval 0.050–0.550; exact and Holm-adjusted *p* = 0.147), which does not show clear evidence of association.
+
+The cohort is small. Bootstrap intervals are unstable, a non-significant result is not evidence of no biological relationship, and an association does not establish radiation-specific causation. No feature selection, classifier training, cutoff tuning, ROC analysis, predictive accuracy, or clinical validation is performed.
+
+## What the reports contain
+
+The combined explorer is available at `exploration/index.html`; the Docker landing page is at the run folder's `index.html`. When the clinical labels validate against the baseline samples, the analysis report is at `analysis/analysis_report.html`.
+
+| Output | Contents |
+| --- | --- |
+| `data_overview.png` | Sample counts, gene-row counts, and per-sample median FPKM overview |
+| `baseline/`, `post_treatment/` | Separate expression distributions, PCA, signature coverage, coefficients, heatmaps, and figure notes |
+| `parameter_inventory.csv` | Meaning and intended use of each project parameter |
+| `sample_parameter_profile.csv` | Per-sample mean/median/95th percentile FPKM and detected-gene counts |
+| `gene_parameter_profile.csv` | Per-gene expression summaries for each dataset |
+| `data_inventory.md`, `data_inventory.json` | Dataset descriptions, source links, counts, checksums, and limitations |
+| `analysis_report.html`, `score_by_mpr.png` | Outcome score plot and accessible summary when analysis runs |
+| `statistics.csv` | Medians, rank probability, interval, exact p-value, and Holm-adjusted p-value |
+| `scores.csv`, `adapted_rank_scores.csv` | Per-sample locked scores and the separate rank sensitivity scores |
+| `sample_flow.csv` | Metadata inclusion/exclusion audit |
+| `sensitivity.csv` | Adapted-rank and leave-one-out sensitivity values |
+| `gene_qc.csv`, `manifest.json` | Expression QC plus input hashes, versions, signature settings, and seed |
+
+## Tests
+
+Run the unit and synthetic end-to-end checks:
 
 ```bash
 PYTHONPATH=src python -m unittest discover -s tests -v
 ```
 
-See `docs/analysis_plan.md` for the initial analysis contract.
+The tests use synthetic cohort data and verify scoring, metadata exclusions, exact tests, and report generation. Passing tests validate software behavior; they do not validate the clinical sample mapping or the scientific hypothesis.
+
+## Current analysis status
+
+The pipeline, visual explorer, score calculations, source-based baseline clinical mapping, and synthetic tests are implemented. Each Docker run generates the real-cohort reports from the public expression matrices and the checked-in minimal clinical mapping. Review the input checksums, mapping source, counts, and limitations in each report before presenting outcome results.

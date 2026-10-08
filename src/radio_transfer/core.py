@@ -22,6 +22,15 @@ def checksum(path):
 
 def load_expression(path, compression="infer"):
     frame = pd.read_csv(path, sep="\t", index_col=0, compression=compression)
+    # GEO's published FPKM tables include Entrez.ID as a gene annotation column
+    # between the gene-symbol index and the actual sample columns. It is not a
+    # sample and must not enter scores, QC summaries, or PCA.
+    annotation_columns = [
+        column for column in frame.columns
+        if str(column).strip().casefold() in {"entrez.id", "entrez_id", "entrez id"}
+    ]
+    if annotation_columns:
+        frame = frame.drop(columns=annotation_columns)
     frame.index = frame.index.astype(str)
     if frame.empty or frame.index.has_duplicates or frame.columns.has_duplicates:
         raise ValueError("Expression matrix must have unique gene and sample identifiers.")
