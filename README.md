@@ -36,9 +36,21 @@ Scores, complete sample-flow/exclusion table, gene QC, exact two-sided rank perm
 
 Rank probability is P(MPR score > non-MPR score) + half the tie probability. It is reported as an association effect, not predictive accuracy. Signed rank adaptation ranks every measured gene within each sample and averages signed ranks; it is separate from the source score. The implementation has no label-driven gene selection, classifier fitting, threshold optimization, or ROC claims.
 
+## Exploratory visualizations
+
+Generate professor-ready plots from the downloaded baseline expression matrix:
+
+```bash
+radio-transfer visualize --expression data/raw/GSE253564_Pre-treatment_Samples_Pubs_FPKMs.txt.gz --signatures config/rss.json config/immune.json --output results/visualization_poc
+```
+
+The command writes expression-distribution and PCA plots, exact symbol-coverage and coefficient plots, a signature heatmap when all genes are present, and an MPR score comparison only when verified clinical metadata is supplied. It also writes `visualization_notes.md` explaining what each figure can and cannot support. No labels are inferred from sample names or published counts.
+
+See [the visualization proof of concept](docs/visualization_poc.md) for the study design, figure guide, interpretation limits, and how to add verified metadata.
+
 ## Current status
 
-Pipeline and synthetic tests are implemented. Published RSS and IMS coefficients and direction have been verified and supplied. Verified clinical linkage, identifier reconciliation, QC figures, and an estimability-aware exploratory treatment interaction remain to be completed. Real cohort analysis has not run. A blocked download is an error, not evidence that the dataset is unavailable. Confirm the current GEO supplementary filename before downloading if it changes.
+Pipeline and synthetic tests are implemented. Published RSS and IMS coefficients and direction have been verified and supplied. Visualization code is implemented, but real-cohort figures have not been generated. Verified clinical linkage, identifier reconciliation, and an estimability-aware exploratory treatment interaction remain pending. Real cohort analysis has not run. Confirm the current GEO supplementary filename before downloading if it changes.
 
 ```bash
 PYTHONPATH=src python -m unittest discover -s tests -v
