@@ -30,8 +30,21 @@ jobs:
               print("RADIO_SHEET", sheet, "shape", frame.shape)
               print(frame.head(5).to_string(index=False, header=False))
           with gzip.open("/tmp/radio-data/ccle.gct.gz", "rt") as source:
-              for index in range(3):
-                  print("CCLE_GCT_HEADER", index, source.readline().rstrip()[:700])
+              gct_header = [source.readline().rstrip() for _ in range(3)]
+              for index, line in enumerate(gct_header):
+                  print("CCLE_GCT_HEADER", index, line[:700])
+          columns = gct_header[2].split("\\t")[2:]
+          radiation = pd.read_excel(path, sheet_name=0, header=1)
+          radiation = radiation.dropna(subset=["Cell Line", "Site", "AUC"])
+          radiation["candidate"] = radiation["Cell Line"].astype(str).str.strip().str.upper() + "_" + radiation["Site"].astype(str).str.strip().str.upper().str.replace(" ", "_", regex=False)
+          available = set(columns)
+          radiation["exact_ccle_match"] = radiation["candidate"].isin(available)
+          print("RADIO_DATA_ROWS", len(radiation))
+          print("RADIO_SITE_COUNTS", radiation["Site"].value_counts().to_dict())
+          print("RADIO_SUBHISTOLOGY_COUNTS", radiation["Subhistology"].value_counts().head(20).to_dict())
+          print("RADIO_EXACT_CELL_SITE_MATCHES", int(radiation["exact_ccle_match"].sum()), "/", len(radiation))
+          print("RADIO_UNMATCHED_EXAMPLES", radiation.loc[~radiation["exact_ccle_match"], ["Cell Line", "Site", "candidate"]].head(20).to_dict(orient="records"))
+          print("RADIO_AUC_RANGE", float(radiation["AUC"].min()), float(radiation["AUC"].max()))
           PY
       - run: sh -n docker-entrypoint.sh
       - name: Simulate Windows CRLF checkout
