@@ -44,6 +44,7 @@ PARAMETERS = [
     ("baseline", "Verified clinical table", "Whether the profile is a pretreatment baseline sample (1/0).", "Restrict the prespecified baseline signature-transfer analysis."),
     ("arm", "Verified clinical table", "Durvalumab alone or durvalumab plus SBRT.", "Describe randomized treatment groups; an arm label is not a patient-specific delivered-dose record."),
     ("mpr", "Verified clinical table", "Major pathologic response indicator (1/0).", "Exploratory outcome grouping only after sample-to-patient linkage and source verification."),
+    ("pathology_response_signed_pct", "Study Table S1", "Signed source value for percent pathology response; the sign is retained as published.", "Audit the binary MPR label against the published 90% cancer-cell-killing threshold."),
     ("label_source", "Verified clinical table", "Source document or table supporting an individual clinical label.", "Audit clinical mapping and avoid guessed labels."),
     ("verified", "Verified clinical table", "Whether the clinical mapping has been checked (1/0).", "Exclude unresolved labels from outcome plots and analysis."),
     ("gene", "Locked signature configuration", "Gene included in the fixed RSS or immune signature.", "Check exact-symbol coverage and explain the score components."),
