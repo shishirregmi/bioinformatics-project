@@ -105,6 +105,10 @@ All verified baseline records are reported in `sample_flow.csv`; unresolved, exc
 3. Within the durvalumab + SBRT arm, compare MPR and no-MPR scores using a two-sided exact rank permutation test. Report group medians, a rank probability (MPR score greater than no-MPR score, with half weight for ties), and a descriptive stratified bootstrap interval. Holm adjustment covers the two prespecified signatures.
 4. Report a signed within-sample rank adaptation and leave-one-out effects as sensitivity checks. These do not replace the locked weighted scores.
 
+### First real-cohort run
+
+The first source-checked run used 32 baseline profiles, including 10 MPR and 6 no-MPR samples in the durvalumab + SBRT arm. For the RSS, the rank probability was **0.15** (95% bootstrap interval 0.00–0.383), with median oriented scores of −3.61 for MPR and 8.75 for no MPR (exact *p* = 0.0225; Holm-adjusted *p* = 0.0450). Since larger oriented scores point in the published favorable direction, this is an inverse association in this RNA-seq adaptation. The secondary immune signature had rank probability **0.267** (95% interval 0.050–0.550; exact and Holm-adjusted *p* = 0.147), which does not show clear evidence of association.
+
 The cohort is small. Bootstrap intervals are unstable, a non-significant result is not evidence of no biological relationship, and an association does not establish radiation-specific causation. No feature selection, classifier training, cutoff tuning, ROC analysis, predictive accuracy, or clinical validation is performed.
 
 ## What the reports contain
