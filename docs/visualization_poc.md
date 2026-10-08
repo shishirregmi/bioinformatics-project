@@ -43,6 +43,21 @@ radio-transfer explore \
 
 A single matrix can still be visualized with `radio-transfer visualize --expression FILE --signatures config/rss.json config/immune.json`. It supports `--dataset-label` and `--accession` so figures identify their timepoint and GEO series.
 
+## Launch the whole workflow with Docker
+
+Build the image once, then run one container command to download both matrices if missing, generate all figures and inventories, and serve the web report:
+
+```bash
+docker build -t radio-transfer .
+mkdir -p data results
+docker run --rm -p 8000:8000 \
+  -v "$PWD/data:/app/data" \
+  -v "$PWD/results:/app/results" \
+  radio-transfer
+```
+
+Open [http://localhost:8000](http://localhost:8000). The container prints the report folder, persists downloaded matrices under `data/`, and saves each run under a timestamped directory in `results/`. Press Ctrl+C to stop serving the page. The report page is also generated as `index.html` in the run folder.
+
 ## Generated views and files
 
 The combined command creates a run-level inventory plus a separate set of figures for each timepoint. It does not pool baseline and post-treatment samples or assume the samples are matched.
@@ -61,6 +76,7 @@ The combined command creates a run-level inventory plus a separate set of figure
 | `parameter_inventory.csv` | Field descriptions and project uses | Gives the professor a data dictionary of the expression, clinical, signature, and radiotherapy fields. |
 | `clinical_metadata_fields.csv` | Field names, completeness, and unique-value counts from supplied metadata | Shows what clinical parameters were supplied without copying any values into the inventory. |
 | `signature_parameters.csv`, `data_inventory.json`, `data_inventory.md` | Signature definitions, input hashes, matrix dimensions, interpretation notes, and source links | Makes the exploration reviewable and reproducible. |
+| `index.html` | Browser page with the figures, data dictionary, and inventory file links | View all generated plots and parameter definitions in one place. |
 
 ## What the radiotherapy information does and does not contain
 
