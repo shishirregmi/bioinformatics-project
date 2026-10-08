@@ -1,6 +1,6 @@
 # Cross-cancer radiotherapy signature transfer
 
-Initial implementation of the attached proposal: evaluate fixed Cui et al. breast-cancer radiosensitivity and immune signatures in pretreatment NSCLC data from GSE253564. The proposal's contents concern radiotherapy, despite its chemotherapy filename.
+Initial implementation of the attached proposal: evaluate fixed Cui et al. breast-cancer radiosensitivity and immune signatures in NSCLC RNA-seq from baseline GSE253564 and post-treatment GSE248378. The proposal's contents concern radiotherapy, despite its chemotherapy filename.
 
 ## Run
 
@@ -11,6 +11,19 @@ pip install -e .
 radio-transfer download --output data/raw
 radio-transfer analyze --expression data/raw/GSE253564_Pre-treatment_Samples_Pubs_FPKMs.txt.gz --metadata data/clinical.csv --signatures config/rss.json config/immune.json --output results/run_01
 ```
+
+To download both public expression matrices for exploration:
+
+```bash
+radio-transfer download --dataset all --output data/raw
+radio-transfer explore \
+  --baseline-expression data/raw/GSE253564_Pre-treatment_Samples_Pubs_FPKMs.txt.gz \
+  --post-treatment-expression data/raw/GSE248378_Durva_Post_FPKMs.txt.gz \
+  --signatures config/rss.json config/immune.json \
+  --output results/data_exploration
+```
+
+The combined exploration creates separate figures for each timepoint, full per-sample and per-gene expression profiles, a parameter inventory, and a data dictionary describing how each field can be used in the project. GSE248378 currently lists 29 GEO samples, while the paper reports 46 post-treatment tissue samples; reconcile the deposited samples with Table S1 before treating it as complete. See [the visualization and data inventory guide](docs/visualization_poc.md) for all data links, parameter descriptions, and interpretation limits.
 
 Docker:
 
@@ -38,13 +51,13 @@ Rank probability is P(MPR score > non-MPR score) + half the tie probability. It 
 
 ## Exploratory visualizations
 
-Generate professor-ready plots from the downloaded baseline expression matrix:
+Generate professor-ready plots from the baseline expression matrix:
 
 ```bash
 radio-transfer visualize --expression data/raw/GSE253564_Pre-treatment_Samples_Pubs_FPKMs.txt.gz --signatures config/rss.json config/immune.json --output results/visualization_poc
 ```
 
-The command writes expression-distribution and PCA plots, exact symbol-coverage and coefficient plots, a signature heatmap when all genes are present, and an MPR score comparison only when verified clinical metadata is supplied. It also writes `visualization_notes.md` explaining what each figure can and cannot support. No labels are inferred from sample names or published counts.
+The command writes expression-distribution and PCA plots, exact symbol-coverage and coefficient plots, a signature heatmap when all genes are present, and an MPR score comparison only when verified clinical metadata is supplied. It also writes `visualization_notes.md` explaining what each figure can and cannot support. For the baseline and post-treatment datasets together, use `radio-transfer explore` above; the matrices remain separate unless sample pairing is verified. No labels are inferred from sample names or published counts.
 
 See [the visualization proof of concept](docs/visualization_poc.md) for the study design, figure guide, interpretation limits, and how to add verified metadata.
 
