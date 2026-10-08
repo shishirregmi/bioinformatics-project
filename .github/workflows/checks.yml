@@ -57,9 +57,15 @@ jobs:
           print("TABLE_S1_SHEETS", book.sheet_names)
           pattern = re.compile(r"sample|specimen|GEO|accession|patient|case|arm|MPR|path|pre|post|RNA.?seq|response", re.I)
           for sheet in book.sheet_names:
-              table = pd.read_excel(workbook_path, sheet_name=sheet, dtype=str, header=None)
-              print("TABLE_S1_SHEET", sheet, "SHAPE", table.shape)
-              print("TABLE_S1_TOP_ROWS", table.iloc[:15, :].to_string(index=False, header=False))
+              raw = pd.read_excel(workbook_path, sheet_name=sheet, dtype=str, header=None)
+              headers = raw.iloc[1].fillna("").astype(str).str.strip().tolist()
+              table = raw.iloc[2:].copy()
+              table.columns = headers
+              sample_ids = set(expression.columns) - {"Entrez.ID"}
+              selected = [column for column in ("Study number", "Study", "Arm", "Pathology Response", "Pre Treatment IF Data", "Pre treatment RNAseq", "Post-treatment RNAseq") if column in table.columns]
+              matched = table[table["Study number"].isin(sample_ids)]
+              print("TABLE_S1_HEADERS", headers)
+              print("BASELINE_TABLE_MATCHES", matched[selected].to_string(index=False))
           PY
       - run: sh -n docker-entrypoint.sh
       - name: Simulate Windows CRLF checkout
