@@ -7,7 +7,7 @@
 1. `sample_id` is the exact `durva###` study number shared by the GSE253564 matrix and Table S1.
 2. The study's `Study Arm` labels map as follows: Arm1 = durvalumab alone; Arm2 = durvalumab plus SBRT. The paper defines the treatment arms and the SBRT regimen.
 3. `baseline=1` is restricted to samples marked `Pre treatment RNAseq = Yes` in Table S1.
-4. Table S1's `Pathology Response` values are signed percent response values. MPR is set to 1 when the absolute value is at least 90, consistent with the paper's definition of MPR as no more than 10% residual viable tumor (at least 90% cancer-cell killing). The exact source value is retained in the `label_source` description; no label is assigned from sample order or from the expected group counts.
+4. Table S1's `Pathology Response` values are signed percent response values. The exact value is retained in `pathology_response_signed_pct`. MPR is set to 1 when the absolute value is at least 90, consistent with the paper's definition of MPR as no more than 10% residual viable tumor (at least 90% cancer-cell killing). No label is assigned from sample order or expected group counts.
 5. The public `Study number` is used as the de-identified `patient_id`; there is one pretreatment sample per patient in this matrix.
 
 ## Checks against the paper
