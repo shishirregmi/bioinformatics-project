@@ -32,6 +32,15 @@ class PipelineTests(unittest.TestCase):
             self.assertEqual(len(flow), 2)
             self.assertIn("unverified_label", flow.iloc[0].exclusion_reason)
 
+    def test_bundled_public_clinical_crosswalk(self):
+        path = Path(__file__).parents[1] / "config/clinical.csv"
+        metadata, flow = load_metadata(path, set(pd.read_csv(path).sample_id))
+        self.assertEqual(len(metadata), 32)
+        combo = metadata[metadata.arm == "durvalumab_sbrt"]
+        self.assertEqual((int((combo.mpr == 1).sum()), int((combo.mpr == 0).sum())), (10, 6))
+        self.assertTrue(metadata.label_source.str.contains("PMC10982989 Table S1").all())
+        self.assertTrue((metadata.verified == "1").all())
+
     def test_unlocked_signature_refused(self):
         path = Path(__file__).parents[1] / "config/signature_template.json"
         with self.assertRaisesRegex(ValueError, "verified and locked"):
@@ -62,6 +71,8 @@ class PipelineTests(unittest.TestCase):
             self.assertEqual(stats.rank_probability.tolist(), [1., 1.])
             self.assertEqual(stats.p_holm.tolist(), [.2, .2])
             self.assertEqual(len(pd.read_csv(root / "out/sensitivity.csv")), 14)
+            self.assertTrue((root / "out/analysis_report.html").exists())
+            self.assertTrue((root / "out/score_by_mpr.png").exists())
             manifest = json.loads((root / "out/manifest.json").read_text())
             self.assertEqual(len(manifest["inputs"]), 4)
             with self.assertRaisesRegex(ValueError, "empty"):
@@ -73,6 +84,14 @@ class PipelineTests(unittest.TestCase):
             path.write_text("gene\tsample\nA\t-1\n")
             with self.assertRaisesRegex(ValueError, "nonnegative"):
                 load_expression(path)
+
+    def test_gene_annotation_column_is_not_a_sample(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "expression.tsv"
+            path.write_text("Gene\tEntrez.ID\tdurva001\tdurva003\nA\t101\t2.5\t3.0\nB\t102\t4.5\t5.0\n")
+            expression = load_expression(path)
+            self.assertEqual(list(expression.columns), ["durva001", "durva003"])
+            self.assertEqual(expression.shape, (2, 2))
 
 
 if __name__ == "__main__":
