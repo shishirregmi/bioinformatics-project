@@ -44,7 +44,7 @@ def _sample_arm(sample_id, annotations):
     return annotations.loc[sample_id, "arm"]
 
 
-def _expression_distributions(expression, annotations, out):
+def _expression_distributions(expression, annotations, out, dataset_label):
     values = np.log2(expression.to_numpy(dtype=float) + 1)
     fig, ax = plt.subplots(figsize=(max(12, expression.shape[1] * 0.38), 6.5))
     boxes = ax.boxplot(
@@ -62,8 +62,8 @@ def _expression_distributions(expression, annotations, out):
     ax.set_xticks(np.arange(1, expression.shape[1] + 1))
     ax.set_xticklabels(expression.columns, rotation=90, fontsize=8)
     ax.set_ylabel("log2(FPKM + 1)")
-    ax.set_xlabel("Pretreatment tumor sample")
-    ax.set_title("Expression distribution across baseline tumor samples")
+    ax.set_xlabel(f"{dataset_label} tumor sample")
+    ax.set_title(f"Expression distribution across {dataset_label.lower()} samples")
     ax.grid(axis="y", color="#d9dee8", linewidth=0.7, alpha=0.8)
     present_arms = {_sample_arm(sample, annotations) for sample in expression.columns}
     handles = [
@@ -79,7 +79,7 @@ def _expression_distributions(expression, annotations, out):
     plt.close(fig)
 
 
-def _pca(expression, annotations, out):
+def _pca(expression, annotations, out, dataset_label):
     transformed = np.log2(expression.to_numpy(dtype=float) + 1)
     variances = transformed.var(axis=1, ddof=1)
     variable = np.flatnonzero(np.isfinite(variances) & (variances > 0))
@@ -110,7 +110,7 @@ def _pca(expression, annotations, out):
     ax.axvline(0, color="#e5e7eb", linewidth=0.8, zorder=0)
     ax.set_xlabel(f"PC1 ({proportions[0] * 100:.1f}% of selected-gene variance)")
     ax.set_ylabel(f"PC2 ({proportions[1] * 100:.1f}% of selected-gene variance)")
-    ax.set_title("Unsupervised PCA of pretreatment tumor expression")
+    ax.set_title(f"Unsupervised PCA of {dataset_label.lower()} tumor expression")
     ax.legend(frameon=False, loc="best")
     ax.text(
         0.01, -0.15,
@@ -192,7 +192,7 @@ def _signature_weights(specs, out):
     plt.close(fig)
 
 
-def _signature_heatmap(expression, specs, annotations, out):
+def _signature_heatmap(expression, specs, annotations, out, dataset_label):
     genes = [gene["gene"] for spec in specs for gene in spec["genes"]]
     available = set(map(str, expression.index))
     missing = [gene for gene in genes if gene not in available]
@@ -218,15 +218,15 @@ def _signature_heatmap(expression, specs, annotations, out):
     ax.set_yticklabels(genes, fontsize=7)
     ax.set_xticks(np.arange(len(order)))
     ax.set_xticklabels([expression.columns[index] for index in order], rotation=90, fontsize=7)
-    ax.set_xlabel("Pretreatment tumor sample")
-    ax.set_title("Expression of the fixed RSS and immune-signature genes")
+    ax.set_xlabel(f"{dataset_label} tumor sample")
+    ax.set_title(f"Expression of fixed signature genes in {dataset_label.lower()} samples")
     rss_count = len(specs[next(i for i, spec in enumerate(specs) if spec["role"] == "primary")]["genes"])
     ax.axhline(rss_count - 0.5, color="#172033", linewidth=1.5)
     colorbar = fig.colorbar(image, ax=ax, fraction=0.025, pad=0.02)
     colorbar.set_label("Per-gene z-score across all baseline samples")
     fig.text(0.12, 0.012,
-             "Blue = lower and red = higher expression relative to that gene's cohort mean. "
-             "This is an exploratory view, not an outcome-based clustering result.",
+        "Blue = lower and red = higher expression relative to that gene's dataset mean. "
+        "This is an exploratory view, not an outcome-based clustering result.",
              fontsize=8, color="#667085")
     fig.tight_layout(rect=(0, 0.04, 1, 1))
     fig.savefig(out / "signature_expression_heatmap.png", dpi=180, bbox_inches="tight")
@@ -280,7 +280,7 @@ def _write_notes(out, summary, coverage):
         "# Visualization proof of concept",
         "",
         f"This run contains **{summary['sample_count']} samples** and **{summary['measured_gene_count']} measured gene rows**.",
-        "The source is the pretreatment GSE253564 FPKM matrix. Figures are descriptive; they are not a clinical validation.",
+        f"The source is the {summary['dataset_label'].lower()} {summary['accession']} FPKM matrix. Figures are descriptive; they are not a clinical validation.",
         "",
         "## Figures",
         "",
@@ -323,6 +323,8 @@ def run(args):
         raise ValueError("Output directory must be empty to preserve previous visualizations.")
     expression = load_expression(args.expression)
     specs = _load_specs(args.signatures)
+    dataset_label = getattr(args, "dataset_label", "Pretreatment baseline")
+    accession = getattr(args, "accession", "GSE253564")
     annotations = None
     included = None
     if args.metadata:
@@ -332,14 +334,16 @@ def run(args):
     if args.metadata:
         flow.to_csv(out / "sample_flow.csv", index=False)
 
-    _expression_distributions(expression, annotations, out)
-    pca_summary = _pca(expression, annotations, out)
+    _expression_distributions(expression, annotations, out, dataset_label)
+    pca_summary = _pca(expression, annotations, out, dataset_label)
     coverage = _signature_coverage(expression, specs, out)
     _signature_weights(specs, out)
-    heatmap_generated = _signature_heatmap(expression, specs, annotations, out)
+    heatmap_generated = _signature_heatmap(expression, specs, annotations, out, dataset_label)
     response_summary = _response_scores(expression, specs, coverage, included, out)
     summary = {
-        "source": "NCBI GEO GSE253564 pretreatment FPKM matrix",
+        "source": f"NCBI GEO {accession} {dataset_label.lower()} FPKM matrix",
+        "accession": accession,
+        "dataset_label": dataset_label,
         "expression_path": str(args.expression), "expression_sha256": checksum(args.expression),
         "clinical_metadata_path": str(args.metadata) if args.metadata else None,
         "clinical_metadata_sha256": checksum(args.metadata) if args.metadata else None,
