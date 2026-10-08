@@ -10,9 +10,21 @@ import pandas as pd
 import scipy
 
 from .core import checksum, holm_two, load_expression, load_metadata, load_signature, rank_effect, rank_test, score_expression
+from .explore import run as explore
 from .visualize import run as visualize
 
-GEO_URL = "https://ftp.ncbi.nlm.nih.gov/geo/series/GSE253nnn/GSE253564/suppl/GSE253564_Pre-treatment_Samples_Pubs_FPKMs.txt.gz"
+GEO_DATASETS = {
+    "baseline": {
+        "accession": "GSE253564",
+        "filename": "GSE253564_Pre-treatment_Samples_Pubs_FPKMs.txt.gz",
+        "url": "https://ftp.ncbi.nlm.nih.gov/geo/series/GSE253nnn/GSE253564/suppl/GSE253564_Pre-treatment_Samples_Pubs_FPKMs.txt.gz",
+    },
+    "post-treatment": {
+        "accession": "GSE248378",
+        "filename": "GSE248378_Durva_Post_FPKMs.txt.gz",
+        "url": "https://ftp.ncbi.nlm.nih.gov/geo/series/GSE248nnn/GSE248378/suppl/GSE248378_Durva_Post_FPKMs.txt.gz",
+    },
+}
 
 
 def run(args):
@@ -77,27 +89,50 @@ def run(args):
 def download(args):
     out = Path(args.output)
     out.mkdir(parents=True, exist_ok=True)
-    target = out / GEO_URL.rsplit("/", 1)[1]
-    if target.exists():
-        raise ValueError("Download already exists; preserve the archived input.")
-    temporary = target.with_suffix(".partial")
-    try:
-        with urllib.request.urlopen(GEO_URL, timeout=60) as response, temporary.open("wb") as stream:
-            while block := response.read(1024 * 1024): stream.write(block)
-        load_expression(temporary, compression="gzip")
-        temporary.rename(target)
-    finally:
-        temporary.unlink(missing_ok=True)
-    (out / "download_manifest.json").write_text(json.dumps({"url": GEO_URL,
-        "downloaded_utc": datetime.now(timezone.utc).isoformat(), "sha256": checksum(target)}, indent=2) + "\n")
-    print(target)
+    selected = list(GEO_DATASETS) if args.dataset == "all" else [args.dataset]
+    targets = [out / GEO_DATASETS[name]["filename"] for name in selected]
+    if any(target.exists() for target in targets):
+        raise ValueError("At least one requested download already exists; preserve the archived input.")
+
+    downloaded = []
+    for name, target in zip(selected, targets):
+        details = GEO_DATASETS[name]
+        temporary = target.with_suffix(".partial")
+        try:
+            with urllib.request.urlopen(details["url"], timeout=60) as response, temporary.open("wb") as stream:
+                while block := response.read(1024 * 1024):
+                    stream.write(block)
+            load_expression(temporary, compression="gzip")
+            temporary.rename(target)
+        finally:
+            temporary.unlink(missing_ok=True)
+        downloaded.append({"dataset": name, "accession": details["accession"], "filename": target.name,
+                           "url": details["url"], "sha256": checksum(target)})
+
+    manifest_path = out / "download_manifest.json"
+    previous = json.loads(manifest_path.read_text()) if manifest_path.exists() else {}
+    previous_records = previous.get("downloads", [])
+    if not previous_records and previous.get("url"):
+        legacy = next((name for name, record in GEO_DATASETS.items() if record["url"] == previous["url"]), None)
+        if legacy:
+            previous_records = [{"dataset": legacy, "accession": GEO_DATASETS[legacy]["accession"],
+                                 "filename": GEO_DATASETS[legacy]["filename"], "url": previous["url"],
+                                 "sha256": previous.get("sha256", "")}]
+    previous_records = [record for record in previous_records if record.get("dataset") not in selected]
+    manifest = {"downloaded_utc": datetime.now(timezone.utc).isoformat(),
+                "downloads": previous_records + downloaded}
+    manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
+    for target in targets:
+        print(target)
 
 
 def main():
     parser = argparse.ArgumentParser(description="Fixed radiotherapy-signature transfer analysis")
     sub = parser.add_subparsers(dest="command", required=True)
-    fetch = sub.add_parser("download", help="Archive the GSE253564 processed FPKM matrix")
+    fetch = sub.add_parser("download", help="Archive public processed FPKM matrices from GEO")
     fetch.add_argument("--output", default="data/raw")
+    fetch.add_argument("--dataset", choices=["baseline", "post-treatment", "all"], default="baseline",
+                       help="Choose pretreatment, post-treatment, or both public GEO matrices")
     fetch.set_defaults(func=download)
     analysis = sub.add_parser("analyze")
     analysis.add_argument("--expression", required=True)
@@ -110,8 +145,17 @@ def main():
     figures.add_argument("--metadata", help="Optional verified clinical metadata CSV")
     figures.add_argument("--signatures", nargs=2, required=True)
     figures.add_argument("--output", default="results/visualization")
+    figures.add_argument("--dataset-label", default="Pretreatment baseline")
+    figures.add_argument("--accession", default="GSE253564")
     figures.set_defaults(func=visualize)
 
+    exploration = sub.add_parser("explore", help="Inventory and visualize baseline and post-treatment data")
+    exploration.add_argument("--baseline-expression", required=True)
+    exploration.add_argument("--post-treatment-expression", required=True)
+    exploration.add_argument("--metadata", help="Optional verified baseline clinical metadata CSV")
+    exploration.add_argument("--signatures", nargs=2, required=True)
+    exploration.add_argument("--output", default="results/data_exploration")
+    exploration.set_defaults(func=explore)
     args = parser.parse_args()
     try:
         args.func(args)
