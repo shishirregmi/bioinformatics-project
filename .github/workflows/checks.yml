@@ -31,8 +31,10 @@ jobs:
 
           fetch("https://ftp.ncbi.nlm.nih.gov/geo/series/GSE253nnn/GSE253564/suppl/GSE253564_Pre-treatment_Samples_Pubs_FPKMs.txt.gz", matrix_path)
           expression = pd.read_csv(matrix_path, sep="\t", index_col=0, compression="gzip")
+          print("BASELINE_RAW_HEADERS", pd.read_csv(matrix_path, sep="\\t", nrows=0).columns.tolist())
           print("BASELINE_SHAPE", expression.shape)
           print("BASELINE_SAMPLE_IDS", list(expression.columns))
+          print("BASELINE_FIRST_ROWS", expression.iloc[:3, :5].to_string())
 
           urls = [
               "https://pmc.ncbi.nlm.nih.gov/articles/PMC10982989/bin/mmc2.xlsx",
@@ -55,11 +57,9 @@ jobs:
           print("TABLE_S1_SHEETS", book.sheet_names)
           pattern = re.compile(r"sample|specimen|GEO|accession|patient|case|arm|MPR|path|pre|post|RNA.?seq|response", re.I)
           for sheet in book.sheet_names:
-              table = pd.read_excel(workbook_path, sheet_name=sheet, dtype=str)
-              columns = [column for column in table.columns if pattern.search(str(column))]
-              print("TABLE_S1_SHEET", sheet, "SHAPE", table.shape, "CANDIDATE_COLUMNS", columns)
-              if columns:
-                  print(table[columns].to_string(index=False))
+              table = pd.read_excel(workbook_path, sheet_name=sheet, dtype=str, header=None)
+              print("TABLE_S1_SHEET", sheet, "SHAPE", table.shape)
+              print("TABLE_S1_TOP_ROWS", table.iloc[:15, :].to_string(index=False, header=False))
           PY
       - run: sh -n docker-entrypoint.sh
       - name: Simulate Windows CRLF checkout
