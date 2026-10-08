@@ -10,18 +10,22 @@ jobs:
           python-version: '3.11'
       - run: pip install -e .
       - run: python -m unittest discover -s tests -v
-      - name: Inspect public cohort crosswalk (temporary)
+      - name: Validate public crosswalk and real cohort pipeline (temporary)
         run: |
           pip install openpyxl
           python - <<'PY'
+          from argparse import Namespace
           from pathlib import Path
           from urllib.request import Request, urlopen
-          import re
           import pandas as pd
+          from radio_transfer.core import load_expression
+          from radio_transfer.cli import run as analyze
+          from radio_transfer.explore import run as explore
 
           root = Path("/tmp/source-inspection")
           root.mkdir()
-          matrix_path = root / "baseline.txt.gz"
+          baseline_path = root / "baseline.txt.gz"
+          post_path = root / "post-treatment.txt.gz"
           workbook_path = root / "table_s1.xlsx"
 
           def fetch(url, target):
@@ -29,12 +33,14 @@ jobs:
               with urlopen(request, timeout=90) as response:
                   target.write_bytes(response.read())
 
-          fetch("https://ftp.ncbi.nlm.nih.gov/geo/series/GSE253nnn/GSE253564/suppl/GSE253564_Pre-treatment_Samples_Pubs_FPKMs.txt.gz", matrix_path)
-          expression = pd.read_csv(matrix_path, sep="\t", index_col=0, compression="gzip")
-          print("BASELINE_RAW_HEADERS", pd.read_csv(matrix_path, sep="\\t", nrows=0).columns.tolist())
-          print("BASELINE_SHAPE", expression.shape)
-          print("BASELINE_SAMPLE_IDS", list(expression.columns))
-          print("BASELINE_FIRST_ROWS", expression.iloc[:3, :5].to_string())
+          fetch("https://ftp.ncbi.nlm.nih.gov/geo/series/GSE253nnn/GSE253564/suppl/GSE253564_Pre-treatment_Samples_Pubs_FPKMs.txt.gz", baseline_path)
+          fetch("https://ftp.ncbi.nlm.nih.gov/geo/series/GSE248nnn/GSE248378/suppl/GSE248378_Durva_Post_FPKMs.txt.gz", post_path)
+          baseline = load_expression(baseline_path, compression="gzip")
+          post = load_expression(post_path, compression="gzip")
+          print("REAL_BASELINE_SHAPE", baseline.shape)
+          print("REAL_BASELINE_SAMPLE_IDS", len(baseline.columns))
+          print("REAL_POST_TREATMENT_SHAPE", post.shape)
+          print("REAL_POST_TREATMENT_SAMPLE_IDS", len(post.columns))
 
           urls = [
               "https://pmc.ncbi.nlm.nih.gov/articles/PMC10982989/bin/mmc2.xlsx",
@@ -53,19 +59,34 @@ jobs:
           else:
               raise RuntimeError("Could not fetch Table S1: " + " | ".join(errors))
 
-          book = pd.ExcelFile(workbook_path)
-          print("TABLE_S1_SHEETS", book.sheet_names)
-          pattern = re.compile(r"sample|specimen|GEO|accession|patient|case|arm|MPR|path|pre|post|RNA.?seq|response", re.I)
-          for sheet in book.sheet_names:
-              raw = pd.read_excel(workbook_path, sheet_name=sheet, dtype=str, header=None)
-              headers = raw.iloc[1].fillna("").astype(str).str.strip().tolist()
-              table = raw.iloc[2:].copy()
-              table.columns = headers
-              sample_ids = set(expression.columns) - {"Entrez.ID"}
-              selected = [column for column in ("Study number", "Study", "Arm", "Pathology Response", "Pre Treatment IF Data", "Pre treatment RNAseq", "Post-treatment RNAseq") if column in table.columns]
-              matched = table[table["Study number"].isin(sample_ids)]
-              print("TABLE_S1_HEADERS", headers)
-              print("BASELINE_TABLE_MATCHES", matched[selected].to_string(index=False))
+          raw = pd.read_excel(workbook_path, sheet_name=0, dtype=str, header=None)
+          headers = raw.iloc[1].fillna("").astype(str).str.strip().tolist()
+          table = raw.iloc[2:].copy()
+          table.columns = headers
+          clinical = pd.read_csv("config/clinical.csv", dtype=str)
+          matched = table.set_index("Study number").loc[clinical.sample_id]
+          assert len(clinical) == 32 and len(set(clinical.sample_id)) == 32
+          assert set(matched["Pre treatment RNAseq"]) == {"Yes"}
+          source_arm = matched["Study  Arm"].reset_index(drop=True)
+          expected_arm = source_arm.map({"Arm1": "durvalumab", "Arm2": "durvalumab_sbrt"})
+          expected_mpr = (pd.to_numeric(matched["Pathology Response"]).abs() >= 90).astype(int).to_numpy()
+          assert expected_arm.notna().all()
+          assert (clinical.arm == expected_arm.to_numpy()).all()
+          assert (clinical.mpr.astype(int).to_numpy() == expected_mpr).all()
+          assert set(clinical.arm.value_counts().to_dict().items()) == {("durvalumab", 16), ("durvalumab_sbrt", 16)}
+          combo = clinical[clinical.arm == "durvalumab_sbrt"]
+          assert (int((combo.mpr == "1").sum()), int((combo.mpr == "0").sum())) == (10, 6)
+          print("CROSSWALK_VALIDATED", len(clinical), "baseline samples; combo MPR/no-MPR =", 10, 6)
+
+          signatures = ["config/rss.json", "config/immune.json"]
+          analyze(Namespace(expression=str(baseline_path), metadata="config/clinical.csv",
+                            signatures=signatures, output=str(root / "real-analysis")))
+          statistics = pd.read_csv(root / "real-analysis/statistics.csv")
+          print("REAL_COHORT_STATISTICS", statistics.to_json(orient="records"))
+          explore(Namespace(baseline_expression=str(baseline_path), post_treatment_expression=str(post_path),
+                            metadata="config/clinical.csv", signatures=signatures,
+                            output=str(root / "real-explorer")))
+          print("REAL_EXPLORER_CREATED", (root / "real-explorer/index.html").exists())
           PY
       - run: sh -n docker-entrypoint.sh
       - name: Simulate Windows CRLF checkout
@@ -92,7 +113,17 @@ jobs:
           ):
               values = rng.lognormal(mean=1, sigma=1, size=(len(genes), count))
               columns = [f"{name}_{i}" for i in range(count)]
-              pd.DataFrame(values, index=genes, columns=columns).to_csv(output / filename, sep="\t", compression="gzip")
+              pd.DataFrame(values, index=genes, columns=columns).to_csv(output / filename, sep="\\t", compression="gzip")
+          clinical = pd.DataFrame({
+              "sample_id": [f"baseline_{i}" for i in range(8)],
+              "patient_id": [f"patient_{i}" for i in range(8)],
+              "baseline": ["1"] * 8,
+              "arm": ["durvalumab", "durvalumab_sbrt"] * 4,
+              "mpr": ["0", "0", "0", "1", "0", "1", "0", "0"],
+              "label_source": ["synthetic CI fixture"] * 8,
+              "verified": ["1"] * 8,
+          })
+          clinical.to_csv("smoke/data/clinical.csv", index=False)
           PY
       - name: Run container and verify the web report
         run: |
@@ -100,6 +131,7 @@ jobs:
           docker run -d --rm --name radio-transfer-smoke -p 8000:8000 \
             -v "$PWD/smoke/data:/app/data" \
             -v "$PWD/smoke/results:/app/results" \
+            -e METADATA=/app/data/clinical.csv \
             radio-transfer:test
           trap 'docker stop radio-transfer-smoke >/dev/null 2>&1 || true' EXIT
           attempt=0
@@ -109,4 +141,6 @@ jobs:
             sleep 1
           done
           grep -q "Radiotherapy RNA-seq data explorer" smoke/report.html
-          curl --fail --silent http://127.0.0.1:8000/baseline/expression_pca.png -o /dev/null
+          grep -q "Outcome analysis" smoke/report.html
+          curl --fail --silent http://127.0.0.1:8000/analysis/analysis_report.html -o /dev/null
+          curl --fail --silent http://127.0.0.1:8000/exploration/baseline/expression_pca.png -o /dev/null
