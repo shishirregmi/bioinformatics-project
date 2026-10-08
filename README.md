@@ -36,7 +36,7 @@ docker run --rm -p 8000:8000 \
   radio-transfer
 ```
 
-The container downloads both GEO matrices if needed, generates the figures and data inventory, then serves the report page. Open [http://localhost:8000](http://localhost:8000). The downloaded matrices and generated reports remain in the mounted `data/` and `results/` folders. Stop the web server with Ctrl+C.
+The container downloads both GEO matrices if needed, generates the figures and data inventory, then serves the report page. Open [http://localhost:8000](http://localhost:8000). The downloaded matrices and generated reports remain in the mounted `data/` and `results/` folders. To include clinical plots, place a verified `clinical.csv` at `data/clinical.csv` before running. Stop the web server with Ctrl+C.
 
 ## Required inputs
 
