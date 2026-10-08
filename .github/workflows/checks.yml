@@ -10,3 +10,44 @@ jobs:
           python-version: '3.11'
       - run: pip install -e .
       - run: python -m unittest discover -s tests -v
+      - run: sh -n docker-entrypoint.sh
+      - run: docker build --tag radio-transfer:test .
+      - name: Prepare cached matrices for container smoke test
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          import numpy as np
+          import pandas as pd
+
+          genes = []
+          for path in (Path("config/rss.json"), Path("config/immune.json")):
+              genes.extend(item["gene"] for item in json.loads(path.read_text())["genes"])
+          genes = list(dict.fromkeys(genes)) + [f"SMOKE_{i}" for i in range(40)]
+          output = Path("smoke/data/raw")
+          output.mkdir(parents=True)
+          rng = np.random.default_rng(76)
+          for name, filename, count in (
+              ("baseline", "GSE253564_Pre-treatment_Samples_Pubs_FPKMs.txt.gz", 8),
+              ("post", "GSE248378_Durva_Post_FPKMs.txt.gz", 7),
+          ):
+              values = rng.lognormal(mean=1, sigma=1, size=(len(genes), count))
+              columns = [f"{name}_{i}" for i in range(count)]
+              pd.DataFrame(values, index=genes, columns=columns).to_csv(output / filename, sep="\t", compression="gzip")
+          PY
+      - name: Run container and verify the web report
+        run: |
+          mkdir -p smoke/results
+          docker run -d --rm --name radio-transfer-smoke -p 8000:8000 \
+            -v "$PWD/smoke/data:/app/data" \
+            -v "$PWD/smoke/results:/app/results" \
+            radio-transfer:test
+          trap 'docker stop radio-transfer-smoke >/dev/null 2>&1 || true' EXIT
+          attempt=0
+          until curl --fail --silent http://127.0.0.1:8000/ -o smoke/report.html; do
+            attempt=$((attempt + 1))
+            if [ "$attempt" -ge 30 ]; then docker logs radio-transfer-smoke; exit 1; fi
+            sleep 1
+          done
+          grep -q "Radiotherapy RNA-seq data explorer" smoke/report.html
+          curl --fail --silent http://127.0.0.1:8000/baseline/expression_pca.png -o /dev/null
