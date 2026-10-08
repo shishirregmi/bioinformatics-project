@@ -113,7 +113,7 @@ jobs:
           ):
               values = rng.lognormal(mean=1, sigma=1, size=(len(genes), count))
               columns = [f"{name}_{i}" for i in range(count)]
-              pd.DataFrame(values, index=genes, columns=columns).to_csv(output / filename, sep="\\t", compression="gzip")
+              pd.DataFrame(values, index=genes, columns=columns).to_csv(output / filename, sep="\t", compression="gzip")
           clinical = pd.DataFrame({
               "sample_id": [f"baseline_{i}" for i in range(8)],
               "patient_id": [f"patient_{i}" for i in range(8)],
