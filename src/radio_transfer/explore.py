@@ -35,6 +35,7 @@ DATASETS = {
 
 PARAMETERS = [
     ("gene_id", "Expression matrix", "Gene identifier in the first column; the project expects exact symbols for signature matching.", "Map matrix rows to fixed signature genes; reconcile unmatched IDs explicitly."),
+    ("Entrez.ID", "Expression matrix annotation", "Gene-level Entrez identifier included in the GEO table; it is not an expression sample.", "Keep available for identifier review, but exclude this annotation column from sample-level expression analysis."),
     ("sample_id", "Expression matrix / GEO", "Identifier for one RNA-seq profile; expression-matrix columns are samples.", "Link expression to GEO and verified clinical records; never infer outcomes from the ID."),
     ("FPKM", "Expression matrix", "Processed fragments-per-kilobase-per-million expression value for a gene in a sample.", "Describe expression distributions, PCA, gene coverage, and fixed signature scores."),
     ("RNA-seq processing", "GEO sample records", "Illumina NovaSeq 6000; reads aligned to hg19 with STAR 2.4.0f1; gene FPKMs estimated with Cufflinks 2.0.2 and GENCODE v19.", "Check assay and reference compatibility before comparing with other cohorts or remapping gene identifiers."),
