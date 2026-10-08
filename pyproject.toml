@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "radio-transfer"
 version = "0.1.0"
 requires-python = ">=3.11"
-dependencies = ["numpy>=1.26,<3", "pandas>=2.2,<3", "scipy>=1.11,<2"]
+dependencies = ["numpy>=1.26,<3", "pandas>=2.2,<3", "scipy>=1.11,<2", "matplotlib>=3.8,<4"]
 
 [project.scripts]
 radio-transfer = "radio_transfer.cli:main"
