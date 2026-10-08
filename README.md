@@ -25,13 +25,18 @@ radio-transfer explore \
 
 The combined exploration creates separate figures for each timepoint, full per-sample and per-gene expression profiles, a parameter inventory, and a data dictionary describing how each field can be used in the project. GSE248378 currently lists 29 GEO samples, while the paper reports 46 post-treatment tissue samples; reconcile the deposited samples with Table S1 before treating it as complete. See [the visualization and data inventory guide](docs/visualization_poc.md) for all data links, parameter descriptions, and interpretation limits.
 
-Docker:
+## Run the full explorer in one Docker run
 
 ```bash
 docker build -t radio-transfer .
-docker run --rm -v "$PWD/data:/app/data" radio-transfer download
-docker run --rm -v "$PWD/data:/app/data" -v "$PWD/config:/app/config:ro" -v "$PWD/results:/app/results" radio-transfer analyze --expression data/raw/GSE253564_Pre-treatment_Samples_Pubs_FPKMs.txt.gz --metadata data/clinical.csv --signatures config/rss.json config/immune.json
+mkdir -p data results
+docker run --rm -p 8000:8000 \
+  -v "$PWD/data:/app/data" \
+  -v "$PWD/results:/app/results" \
+  radio-transfer
 ```
+
+The container downloads both GEO matrices if needed, generates the figures and data inventory, then serves the report page. Open [http://localhost:8000](http://localhost:8000). The downloaded matrices and generated reports remain in the mounted `data/` and `results/` folders. Stop the web server with Ctrl+C.
 
 ## Required inputs
 
@@ -57,7 +62,7 @@ Generate professor-ready plots from the baseline expression matrix:
 radio-transfer visualize --expression data/raw/GSE253564_Pre-treatment_Samples_Pubs_FPKMs.txt.gz --signatures config/rss.json config/immune.json --output results/visualization_poc
 ```
 
-The command writes expression-distribution and PCA plots, exact symbol-coverage and coefficient plots, a signature heatmap when all genes are present, and an MPR score comparison only when verified clinical metadata is supplied. It also writes `visualization_notes.md` explaining what each figure can and cannot support. For the baseline and post-treatment datasets together, use `radio-transfer explore` above; the matrices remain separate unless sample pairing is verified. No labels are inferred from sample names or published counts.
+The command writes expression-distribution and PCA plots, exact symbol-coverage and coefficient plots, a signature heatmap when all genes are present, and an MPR score comparison only when verified clinical metadata is supplied. It also writes `visualization_notes.md` explaining what each figure can and cannot support. For the baseline and post-treatment datasets together, use `radio-transfer explore` above; the matrices remain separate unless sample pairing is verified. No labels are inferred from sample names or published counts. Each combined exploration includes an `index.html` page that displays the figures and links the inventory files.
 
 See [the visualization proof of concept](docs/visualization_poc.md) for the study design, figure guide, interpretation limits, and how to add verified metadata.
 
