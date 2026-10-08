@@ -16,6 +16,8 @@ Radiotherapy response differs across cancer lineages and among tumors within a l
 
 A second dataset offers a limited clinical context: baseline RNA-seq and pathologic response labels from a neoadjuvant NSCLC study of durvalumab with or without stereotactic body radiotherapy (SBRT). The combination arm is small, and MPR can reflect immune response as well as radiation. Therefore, this cohort can show whether the score’s direction is compatible with a patient endpoint; it cannot establish radiation-specific causality or predictive performance.
 
+The first source-checked cell-line run linked 86 NSCLC and 37 LUAD lines with complete RSS expression. The NSCLC association was near zero (ρ = −0.027; 95% bootstrap CI −0.246 to 0.204; permutation *p* = 0.806), as was the LUAD estimate. The original small patient pilot showed an inverse RSS–MPR rank probability of 0.15 (exact *p* = 0.0225; 10 MPR, 6 non-MPR). These results do not support transfer or a clinical biomarker claim. Their difference makes cross-scale portability and treatment/immune context a useful research question, while remaining insufficient to identify a biological mechanism.
+
 ## Central question and hypotheses
 
 **Central question:** Does the fixed breast-cancer RSS track intrinsic radiation survival in NSCLC cells, and is its direction compatible with pathologic response in a separate small NSCLC patient cohort?

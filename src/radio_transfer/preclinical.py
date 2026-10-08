@@ -453,7 +453,13 @@ def run(args):
         "histology_definitions": {"NSCLC": sorted(NSCLC_SUBHISTOLOGIES), "LUAD": sorted(LUAD_SUBHISTOLOGIES)},
         "join": "Exact cell-line plus site after case and punctuation normalization; duplicate matches excluded; no imputation.",
         "transformation": "log2(RPKM + 1), then per-gene z-score across CCLE sample columns complete for all 34 RSS genes (sample SD); source weights/direction unchanged.",
-        "statistics": {"effect": "Spearman rho", "p_value": "two-sided permutation, 10000 draws", "interval": "95% percentile bootstrap, 2000 cell-line resamples", "seed": 4370, "multiplicity": "Holm adjustment for NSCLC and LUAD tests"},
+        "statistics": {
+            "effect": "Spearman rho",
+            "p_value": "two-sided permutation, 10000 draws",
+            "interval": "95% percentile bootstrap, 2000 cell-line resamples",
+            "seeds": {"NSCLC": 4370, "LUAD": 4371, "NSCLC_subhistology_adjusted": 4372},
+            "multiplicity": "Holm adjustment for NSCLC and LUAD tests",
+        },
     }
     (output / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
     print(f"Saved preclinical radiation-response analysis to {output}")

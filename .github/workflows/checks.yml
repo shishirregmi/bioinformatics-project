@@ -10,20 +10,6 @@ jobs:
           python-version: '3.11'
       - run: pip install -e .
       - run: python -m unittest discover -s tests -v
-      - name: Verify preclinical analysis on public source files (temporary)
-        run: |
-          set -euo pipefail
-          mkdir -p /tmp/radio-data
-          radio-transfer download --dataset radiation-response --output /tmp/radio-data
-          radio-transfer download --dataset ccle-expression --output /tmp/radio-data
-          radio-transfer preclinical \
-            --radiation-response /tmp/radio-data/41467_2016_BFncomms11428_MOESM708_ESM.xlsx \
-            --expression /tmp/radio-data/CCLE_RNAseq_genes_rpkm_20180929.gct.gz \
-            --signature config/rss.json \
-            --output /tmp/radio-preclinical
-          cat /tmp/radio-preclinical/cohort_flow.csv
-          cat /tmp/radio-preclinical/statistics.csv
-          head -n 8 /tmp/radio-preclinical/gene_mapping.csv
       - run: sh -n docker-entrypoint.sh
       - name: Simulate Windows CRLF checkout
         run: python -c "from pathlib import Path; path = Path('docker-entrypoint.sh'); path.write_bytes(path.read_bytes().replace(b'\\n', b'\\r\\n'))"

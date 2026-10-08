@@ -19,7 +19,7 @@ Use the pretreatment GSE253564 RNA-seq profiles and source-verified clinical map
 The GSE248378 post-treatment matrix and complete data explorer are included for context and teaching. Post-treatment samples are not treated as baseline samples or matched pairs unless patient linkage is confirmed.
 
 See [`docs/master_project_proposal.md`](docs/master_project_proposal.md) for the full research rationale, aims, analysis design, feasibility, milestones, and limitations. The statistical contract is in [`docs/analysis_plan.md`](docs/analysis_plan.md).
-The exact locked-score provenance and RNA-seq adaptation are described in [`docs/cui_scoring.md`](docs/cui_scoring.md).
+The [data and visualization guide](docs/visualization_poc.md) explains the expression and radiotherapy fields and how to read the generated views. The exact locked-score provenance and RNA-seq adaptation are described in [`docs/cui_scoring.md`](docs/cui_scoring.md).
 
 ## Public datasets and parameters
 
@@ -35,6 +35,12 @@ The exact locked-score provenance and RNA-seq adaptation are described in [`docs
 **How the radiation endpoint works:** Yard et al. integrated survival measurements across 1, 2, 3, 4, 5, 6, 8, and 10 Gy and rescaled the area from 0 (completely sensitive) to 7 (completely resistant). It is a cell-culture phenotype, not a patient dose, tumor dose-volume histogram, or clinical response. The trial RNA-seq data do not include patient-specific RT plans, RTDOSE/RTSTRUCT DICOM, delivered dose, or organ-at-risk dosimetry.
 
 The radiation workbook includes lung-site records beyond NSCLC, including small-cell lung cancer and unspecified histologies. The pipeline selects a documented set of explicit non-small-cell subhistologies, audits all source rows, and keeps only exact expression joins. It does not infer labels from sample counts or use fuzzy name matching. CCLE Ensembl rows are mapped through the GCT `Description` symbol field; repeated rows for a symbol are summed before log transformation. Lines with incomplete RSS expression are excluded without imputation.
+
+### First source-checked readout
+
+The downloaded radiation workbook contained 533 records, including 89 explicit NSCLC and 39 LUAD lines. The normalized exact CCLE join matched 518/533 panel records overall; 86 NSCLC and 37 LUAD records had both a matched expression profile and complete 34-gene RSS values. The NSCLC RSS–AUC correlation was **ρ = −0.027** (95% bootstrap CI −0.246 to 0.204; permutation *p* = 0.806; Holm *p* = 1.000). In LUAD it was **ρ = −0.024** (95% CI −0.378 to 0.316; *p* = 0.889; Holm *p* = 1.000). The histology-adjusted sensitivity was also near zero (ρ = −0.047; 95% CI −0.273 to 0.172; within-subhistology permutation *p* = 0.669).
+
+This first real-data run shows no evidence that the fixed breast RSS transfers to the in-vitro lung radiation-survival phenotype under this RNA-seq adaptation. The small clinical pilot in the merged proof of concept showed an inverse RSS–MPR association in the combination arm (rank probability 0.15; exact *p* = 0.0225; Holm *p* = 0.045, with 10 MPR and 6 non-MPR patients). That estimate is too small and context-dependent to support prediction. The preclinical/clinical difference motivates a careful thesis on cross-cancer and cross-scale portability; it does not establish a mechanism or a clinical biomarker.
 
 ## Run everything in one Docker run
 
