@@ -56,7 +56,7 @@ docker run --rm -p 8000:8000 \
   radio-transfer
 ```
 
-Open [http://localhost:8000](http://localhost:8000). The container prints the report folder, persists downloaded matrices under `data/`, and saves each run under a timestamped directory in `results/`. Press Ctrl+C to stop serving the page. The report page is also generated as `index.html` in the run folder.
+Open [http://localhost:8000](http://localhost:8000). The container prints the report folder, persists downloaded matrices under `data/`, and saves each run under a timestamped directory in `results/`. To include verified treatment-arm and response plots, place the completed mapping at `data/clinical.csv` before running. Press Ctrl+C to stop serving the page. The report page is also generated as `index.html` in the run folder.
 
 ## Generated views and files
 
