@@ -11,6 +11,7 @@ import scipy
 
 from .core import checksum, holm_two, load_expression, load_metadata, load_signature, rank_effect, rank_test, score_expression
 from .explore import run as explore
+from .preclinical import CCLE_SOURCE, RADIATION_SOURCE, load_radiation_response, run as preclinical
 from .report import write_analysis_report
 from .visualize import run as visualize
 
@@ -26,6 +27,23 @@ GEO_DATASETS = {
         "url": "https://ftp.ncbi.nlm.nih.gov/geo/series/GSE248nnn/GSE248378/suppl/GSE248378_Durva_Post_FPKMs.txt.gz",
     },
 }
+
+ADDITIONAL_DATASETS = {
+    "radiation-response": {
+        "accession": RADIATION_SOURCE["accession"],
+        "filename": "41467_2016_BFncomms11428_MOESM708_ESM.xlsx",
+        "url": RADIATION_SOURCE["supplement"],
+        "format": "excel",
+    },
+    "ccle-expression": {
+        "accession": CCLE_SOURCE["accession"],
+        "filename": CCLE_SOURCE["filename"],
+        "url": CCLE_SOURCE["url"],
+        "format": "gct",
+    },
+}
+
+DOWNLOAD_DATASETS = {**GEO_DATASETS, **ADDITIONAL_DATASETS}
 
 
 def run(args):
@@ -91,20 +109,27 @@ def run(args):
 def download(args):
     out = Path(args.output)
     out.mkdir(parents=True, exist_ok=True)
-    selected = list(GEO_DATASETS) if args.dataset == "all" else [args.dataset]
-    targets = [out / GEO_DATASETS[name]["filename"] for name in selected]
+    selected = list(DOWNLOAD_DATASETS) if args.dataset == "all" else [args.dataset]
+    targets = [out / DOWNLOAD_DATASETS[name]["filename"] for name in selected]
     if any(target.exists() for target in targets):
         raise ValueError("At least one requested download already exists; preserve the archived input.")
 
     downloaded = []
     for name, target in zip(selected, targets):
-        details = GEO_DATASETS[name]
+        details = DOWNLOAD_DATASETS[name]
         temporary = target.with_suffix(".partial")
         try:
             with urllib.request.urlopen(details["url"], timeout=60) as response, temporary.open("wb") as stream:
                 while block := response.read(1024 * 1024):
                     stream.write(block)
-            load_expression(temporary, compression="gzip")
+            if name in GEO_DATASETS:
+                load_expression(temporary, compression="gzip")
+            elif details["format"] == "excel":
+                load_radiation_response(temporary)
+            elif details["format"] == "gct":
+                header = pd.read_csv(temporary, sep="\t", compression="gzip", skiprows=2, nrows=0)
+                if list(header.columns[:2]) != ["Name", "Description"] or len(header.columns) < 4:
+                    raise ValueError("Downloaded CCLE file is not the expected GCT gene-expression matrix.")
             temporary.rename(target)
         finally:
             temporary.unlink(missing_ok=True)
@@ -115,10 +140,10 @@ def download(args):
     previous = json.loads(manifest_path.read_text()) if manifest_path.exists() else {}
     previous_records = previous.get("downloads", [])
     if not previous_records and previous.get("url"):
-        legacy = next((name for name, record in GEO_DATASETS.items() if record["url"] == previous["url"]), None)
+        legacy = next((name for name, record in DOWNLOAD_DATASETS.items() if record["url"] == previous["url"]), None)
         if legacy:
-            previous_records = [{"dataset": legacy, "accession": GEO_DATASETS[legacy]["accession"],
-                                 "filename": GEO_DATASETS[legacy]["filename"], "url": previous["url"],
+            previous_records = [{"dataset": legacy, "accession": DOWNLOAD_DATASETS[legacy]["accession"],
+                                 "filename": DOWNLOAD_DATASETS[legacy]["filename"], "url": previous["url"],
                                  "sha256": previous.get("sha256", "")}]
     previous_records = [record for record in previous_records if record.get("dataset") not in selected]
     manifest = {"downloaded_utc": datetime.now(timezone.utc).isoformat(),
@@ -131,10 +156,10 @@ def download(args):
 def main():
     parser = argparse.ArgumentParser(description="Fixed radiotherapy-signature transfer analysis")
     sub = parser.add_subparsers(dest="command", required=True)
-    fetch = sub.add_parser("download", help="Archive public processed FPKM matrices from GEO")
+    fetch = sub.add_parser("download", help="Archive the public expression and radiation-response datasets")
     fetch.add_argument("--output", default="data/raw")
-    fetch.add_argument("--dataset", choices=["baseline", "post-treatment", "all"], default="baseline",
-                       help="Choose pretreatment, post-treatment, or both public GEO matrices")
+    fetch.add_argument("--dataset", choices=[*DOWNLOAD_DATASETS, "all"], default="baseline",
+                       help="Choose one source dataset or all GEO and preclinical files")
     fetch.set_defaults(func=download)
     analysis = sub.add_parser("analyze")
     analysis.add_argument("--expression", required=True)
@@ -142,6 +167,12 @@ def main():
     analysis.add_argument("--signatures", nargs=2, required=True)
     analysis.add_argument("--output", default="results/run")
     analysis.set_defaults(func=run)
+    preclinical_analysis = sub.add_parser("preclinical", help="Test the locked RSS against cell-line radiation survival")
+    preclinical_analysis.add_argument("--radiation-response", required=True, help="Yard et al. Supplementary Data 1 workbook")
+    preclinical_analysis.add_argument("--expression", required=True, help="CCLE RPKM GCT.gz matrix")
+    preclinical_analysis.add_argument("--signature", required=True, help="Locked RSS JSON specification")
+    preclinical_analysis.add_argument("--output", default="results/preclinical")
+    preclinical_analysis.set_defaults(func=preclinical)
     figures = sub.add_parser("visualize", help="Create exploratory plots and explanatory notes")
     figures.add_argument("--expression", required=True)
     figures.add_argument("--metadata", help="Optional verified clinical metadata CSV")
